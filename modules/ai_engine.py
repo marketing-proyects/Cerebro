@@ -1,46 +1,57 @@
 import openai
 import streamlit as st
 
-def extraer_datos_competencia(url):
+def obtener_tc_brou():
     """
-    Simula la extracción y análisis de IA.
-    En una fase conección con Firecrawl y OpenAI.
+    Simulación de consulta al BROU. 
+    Scraper ligero para esta URL.
     """
-    # Lógica de:
-    # 1. Navegar a la URL.
-    # 2. Obtener el texto de la página.
-    # 3. Preguntar a la IA: "¿Cuál es el precio de este producto?"
+    return 42.50  # Valor de ejemplo para Uruguay
+
+def extraer_con_experto_mercado(url_competidor, producto_nombre, precio_propio):
+    tc_dia = obtener_tc_brou()
     
-    # Simulación de respuesta de IA para pruebas iniciales
+    # Este es el Súper Prompt con tus nuevas reglas
+    prompt = f"""
+    Eres un experto en estudios de mercado en Uruguay.
+    Analiza el producto: {producto_nombre} (Tu precio: {precio_propio}).
+    
+    REGLAS CRÍTICAS:
+    1. Identifica si el precio es una OFERTA temporal (carteles de promo, liquidación).
+    2. Identifica la UNIDAD DE EMPAQUE (UE). Si es un pack, divide para hallar el PRECIO UNITARIO.
+    3. Si el precio está en U$S, conviértelo a Pesos usando el T/C del día: {tc_dia}.
+    4. Asegúrate de que la tienda sea URUGUAYA.
+    
+    URL a analizar: {url_competidor}
+    """
+    
+    # Simulación de la respuesta estructurada de la IA
     return {
-        "precio_competencia": 145.50, # Dato que encontraría la IA
-        "stock": "Disponible",
-        "observacion": "Precio detectado en oferta relámpago."
+        "match_nombre": "Atornilladora Brushless 20v - Oferta",
+        "confianza": 0.98,
+        "tienda": "Ingco / Total / Bosch / Makita",
+        "moneda_original": "USD",
+        "precio_publicado": 450.00,
+        "unidad_empaque": 1,
+        "precio_unitario_uyu": 19125.00,  # 450 * 42.50
+        "tipo_precio": "Promocional", # <-- Aviso de alerta
+        "alerta_promo": "⚠️ OFERTA DETECTADA: Válido hasta agotar stock web.",
+        "sugerencia": "Mantener precio. La competencia está en liquidación temporal."
     }
 
-def procesar_lista_productos(df):
-    """Recorre el Excel del usuario y aplica la IA a cada link"""
+def procesar_investigacion(df):
     resultados = []
-    progreso = st.progress(0)
-    total = len(df)
-
-    for index, row in df.iterrows():
-        # Actualizamos la barra de progreso para el usuario
-        progreso.progress((index + 1) / total)
+    for _, row in df.iterrows():
+        # Llamada a la lógica de experto
+        datos = extraer_con_experto_mercado(row['URL Competidor'], row['Producto'], row['Precio Propio'])
         
-        st.write(f"🔍 Analizando: {row['Producto']}...")
-        
-        # Llamada al motor de extracción
-        datos = extraer_datos_competencia(row['URL Competidor'])
-        
-        # Guardamos la info para el Excel final
+        # Unimos tus datos con los hallazgos de la IA
         resultados.append({
-            "SKU": row['SKU'],
-            "Producto": row['Producto'],
-            "Tu Precio": row['Precio Propio'],
-            "Precio Competidor": datos['precio_competencia'],
-            "Diferencia %": ((datos['precio_competencia'] - row['Precio Propio']) / row['Precio Propio']) * 100,
-            "Estado": datos['stock']
+            **row.to_dict(), # Mantiene tus columnas originales
+            "Precio Unitario Comp.": datos["precio_unitario_uyu"],
+            "Estado": datos["tipo_precio"],
+            "Alerta": datos["alerta_promo"],
+            "Confianza Match": f"{datos['confianza']*100}%",
+            "Sugerencia IA": datos["sugerencia"]
         })
-    
     return resultados
