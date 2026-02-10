@@ -4,8 +4,12 @@ import yaml
 from yaml.loader import SafeLoader
 
 def gestionar_login():
-    with open('config.yaml') as file:
-        config = yaml.load(file, Loader=SafeLoader)
+    try:
+        with open('config.yaml') as file:
+            config = yaml.load(file, Loader=SafeLoader)
+    except Exception as e:
+        st.error(f"Error al cargar config.yaml: {e}")
+        return
 
     authenticator = stauth.Authenticate(
         config['credentials'],
@@ -14,5 +18,5 @@ def gestionar_login():
         config['cookie']['expiry_days']
     )
 
-    # El formulario se renderiza aquí
-    authenticator.login(location='main')
+    # Agregamos 'Login' como nombre del formulario para evitar errores de procesamiento
+    authenticator.login('Login', 'main')
