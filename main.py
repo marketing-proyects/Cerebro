@@ -3,7 +3,6 @@ import pandas as pd
 from modules.auth_manager import gestionar_login
 from modules.ai_engine import procesar_lote_industrial
 
-# Configuración base
 st.set_page_config(page_title="CEREBRO - WÜRTH", page_icon="🧠", layout="wide")
 
 # Estilos Clean Office
@@ -16,26 +15,26 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Validación de acceso
+# Lógica de validación
 if gestionar_login():
-    # LUGAR RÍGIDO PARA EL LOGO: Sidebar
+    # UBICACIÓN RÍGIDA DEL LOGO: Sidebar únicamente
     st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/b/be/W%C3%BCrth_logo.svg", width=120)
     st.sidebar.divider()
     st.sidebar.markdown(f"**Usuario:** {st.session_state.get('username', 'admin')}")
     
-    # Cuerpo Principal
+    # Cuerpo Principal sin imágenes para evitar el error del "0"
     st.markdown("<h1>🧠 CEREBRO SISTEMA</h1>", unsafe_allow_html=True)
     st.subheader("Investigación de Mercado Automática")
     st.write("---")
 
-    # Cargador de archivos (Soporta .xlsm)
-    archivo = st.file_uploader("Subir Inventario (.xlsx, .xlsm)", type=['xlsx', 'xlsm'], key="main_up")
+    # Cargador de archivos con soporte .xlsm
+    archivo = st.file_uploader("Subir Inventario (.xlsx, .xlsm)", type=['xlsx', 'xlsm'], key="main_v6")
     
     if archivo:
-        # dtype=str mantiene los ceros iniciales 0893... sin necesidad de comas o tildes
+        # dtype=str preserva ceros iniciales; engine='openpyxl' lee archivos con macros
         df = pd.read_excel(archivo, dtype=str, engine='openpyxl')
         
-        # MAPEO DE TUS COLUMNAS: Ajustamos Nombre y Especificación a lo que la IA entiende
+        # MAPEADO FLEXIBLE: Buscamos tus columnas actuales Nombre/Especificación
         mapeo = {'Nombre': 'Material', 'Especificación': 'Descripción'}
         df = df.rename(columns=mapeo)
         
@@ -43,14 +42,14 @@ if gestionar_login():
         st.dataframe(df.head(10), use_container_width=True)
         
         if st.button("INICIAR INVESTIGACIÓN CON IA"):
-            with st.spinner("La IA está investigando la competencia en Uruguay..."):
+            with st.spinner("Investigando competencia..."):
                 resultados = procesar_lote_industrial(df)
             
             if resultados:
                 st.success("INVESTIGACIÓN FINALIZADA")
                 st.dataframe(pd.DataFrame(resultados), use_container_width=True)
             else:
-                st.warning("No se encontraron resultados. Verifique los códigos del Excel.")
+                st.warning("No se encontraron resultados. Verifique que los códigos sean válidos.")
 
     if st.sidebar.button("CERRAR SESIÓN"):
         st.session_state["autenticado"] = False
