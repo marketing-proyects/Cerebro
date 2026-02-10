@@ -4,13 +4,13 @@ from modules.auth_manager import gestionar_login
 from modules.data_processor import cargar_archivo, validar_columnas
 from modules.ai_engine import procesar_investigacion_industrial
 
-st.set_page_config(page_title="Cerebro Industrial", page_icon="🔧", layout="wide")
+st.set_page_config(page_title="Cerebro", page_icon="🤖", layout="wide")
 
 autenticado, usuario = gestionar_login()
 
 if autenticado:
     st.sidebar.title(f"Usuario: {usuario}")
-    st.title("🧠 Cerebro: Inteligencia de Mercado Würth")
+    st.title("🧠 Cerebro: Inteligencia de Mercado")
     
     df = cargar_archivo()
     if df is not None:
