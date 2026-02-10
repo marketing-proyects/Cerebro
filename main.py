@@ -4,23 +4,21 @@ from modules.auth_manager import gestionar_login
 from modules.data_processor import cargar_archivo, validar_columnas
 from modules.ai_engine import procesar_investigacion_industrial
 
-# Configuración de página
+# Configuración de página con icono de Cerebro
 st.set_page_config(
-    page_title="Cerebro - Inteligencia de mercado", 
-    page_icon="🤖", 
+    page_title="Cerebro - Inteligencia Industrial", 
+    page_icon="🧠", 
     layout="wide"
 )
 
 # Estilos CSS: Futurista, Minimalista y con Alto Contraste
 st.markdown("""
     <style>
-    /* Fondo Grafito Oscuro para mejor visualización de cuadros */
     .stApp {
         background-color: #121417;
         color: #FFFFFF;
     }
     
-    /* Títulos en Neón Cian */
     h1 {
         color: #00FBFF;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -29,7 +27,6 @@ st.markdown("""
         text-shadow: 0px 0px 8px rgba(0, 251, 255, 0.2);
     }
     
-    /* Botones de Acción */
     .stButton>button {
         background-color: transparent;
         color: #00FBFF;
@@ -45,7 +42,6 @@ st.markdown("""
         box-shadow: 0px 0px 15px rgba(0, 251, 255, 0.4);
     }
 
-    /* Estilo de Tablas y Cuadros para que Resalten */
     .stDataFrame {
         background-color: #1E2227;
         border: 1px solid #30363D;
@@ -53,7 +49,6 @@ st.markdown("""
         padding: 10px;
     }
 
-    /* Ocultar menús estándar para limpieza visual */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -65,11 +60,11 @@ autenticado, usuario = gestionar_login()
 
 if autenticado:
     # Barra Lateral
-    st.sidebar.markdown(f"<h3 style='color: #00FBFF;'>SESIÓN: {usuario}</h3>", unsafe_allow_html=True)
+    st.sidebar.markdown(f"<h3 style='color: #00FBFF;'>⚙️ SESIÓN: {usuario}</h3>", unsafe_allow_html=True)
     st.sidebar.markdown("---")
     
-    # Encabezado Principal
-    st.markdown("<h1>SISTEMA CEREBRO v1.0</h1>", unsafe_allow_html=True)
+    # Encabezado Principal con Cerebro y Tuerca
+    st.markdown("<h1>🧠 CEREBRO_SISTEMA ⚙️</h1>", unsafe_allow_html=True)
     st.write("---")
 
     # Área de Trabajo
@@ -97,7 +92,6 @@ if autenticado:
                 st.success("ANÁLISIS COMPLETADO")
                 df_final = pd.DataFrame(resultados)
 
-                # Alertas de mercado
                 for _, row in df_final.iterrows():
                     if row["Es Oferta"]:
                         st.warning(f"⚡ PROMO DETECTADA: {row['Producto']} - {row['Alerta']}")
@@ -105,7 +99,6 @@ if autenticado:
                 st.write("### 📊 Salida de Inteligencia")
                 st.dataframe(df_final, use_container_width=True)
 
-                # Exportación
                 csv = df_final.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="DESCARGAR REPORTE LOG",
@@ -118,6 +111,5 @@ if autenticado:
         st.session_state["authenticator"].logout('main')
         st.rerun()
 else:
-    # Pantalla de acceso restringido traducida
     st.markdown("<h2 style='text-align: center; color: #00FBFF;'>ACCESO RESTRINGIDO</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center;'>Por favor, identifíquese para activar el sistema.</p>", unsafe_allow_html=True)
