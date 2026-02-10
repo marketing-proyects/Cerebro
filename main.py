@@ -5,34 +5,30 @@ from modules.ai_engine import procesar_lote_industrial
 
 st.set_page_config(page_title="CEREBRO - WÜRTH", page_icon="🧠", layout="wide")
 
-# Estilo para fondo blanco y eliminar el '0'
 st.markdown("""
     <style>
     .stApp { background-color: #FFFFFF; color: #333333; }
     h1 { color: #ED1C24 !important; }
     div.stButton > button { background-color: #ED1C24 !important; color: white !important; }
     div.stButton > button p { color: white !important; }
-    /* Esconder cualquier rastro de widget vacío */
-    .stVerticalBlock > div > div > label { display: none; }
     </style>
     """, unsafe_allow_html=True)
 
 # Lógica de Login
 if gestionar_login():
-    # Sidebar minimalista
+    # El logo ya no se ve aquí para evitar problemas con el menú lateral
     st.sidebar.markdown(f"**Usuario:** {st.session_state.get('username', 'admin')}")
     
     st.markdown("<h1>🧠 CEREBRO SISTEMA</h1>", unsafe_allow_html=True)
-    st.subheader("Investigación de Mercado Uruguay")
+    st.subheader("Investigación de Mercado Inteligente")
     st.write("---")
 
-    archivo = st.file_uploader("Subir Inventario (.xlsx, .xlsm)", type=['xlsx', 'xlsm'], key="up_main_final")
+    archivo = st.file_uploader("Subir Inventario (.xlsx, .xlsm)", type=['xlsx', 'xlsm'], key="up_main_clean")
     
     if archivo:
-        # Cargamos el archivo manteniendo los ceros iniciales
         df = pd.read_excel(archivo, dtype=str, engine='openpyxl')
         
-        # Mapeamos tus columnas (Nombre -> Material, Especificación -> Descripción)
+        # Mapeo de columnas actuales Nombre/Especificación
         mapeo = {'Nombre': 'Material', 'Especificación': 'Descripción'}
         df = df.rename(columns=mapeo)
         
