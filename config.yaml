@@ -8,3 +8,6 @@ cookie:
   expiry_days: 30
   key: "llave_secreta_cerebro"
   name: "cerebro_cookie"
+preauthorized:
+  emails:
+    - "admin@tuempresa.com"
