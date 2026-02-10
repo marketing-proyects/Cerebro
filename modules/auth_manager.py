@@ -20,12 +20,12 @@ def gestionar_login():
             </style>
         """, unsafe_allow_html=True)
 
-        st.markdown("<h2 style='text-align: center; color: #ED1C24;'>🔒 ACCESO CEREBRO</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #ED1C24; margin-top: 50px;'>🔒 ACCESO CEREBRO</h2>", unsafe_allow_html=True)
         
         with st.container():
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                with st.form(key="login_final"):
+                with st.form(key="login_final_clean"):
                     user = st.text_input("Usuario")
                     password = st.text_input("Contraseña", type="password")
                     if st.form_submit_button("INGRESAR"):
