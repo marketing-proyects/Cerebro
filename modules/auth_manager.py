@@ -1,51 +1,34 @@
 import streamlit as st
 
 def gestionar_login():
+    # Inicializamos el estado para evitar que aparezca el "0"
     if "autenticado" not in st.session_state:
         st.session_state["autenticado"] = False
 
     if not st.session_state["autenticado"]:
-        # CSS Ultra-específico para forzar texto blanco y centrar logo
+        # CSS Ultra-específico para el botón y el logo
         st.markdown("""
             <style>
-            /* Contenedor del Logo en Login */
-            .login-logo {
-                display: flex;
-                justify-content: center;
-                margin-bottom: 20px;
-            }
-            
             /* FORZAR TEXTO BLANCO EN EL BOTÓN */
             div.stButton > button {
                 background-color: #ED1C24 !important;
-                color: #FFFFFF !important; /* Blanco puro */
+                color: white !important; /* Blanco sólido */
                 border: 2px solid #ED1C24 !important;
                 font-weight: bold !important;
                 width: 100% !important;
                 height: 3.5em !important;
-                opacity: 1 !important;
             }
-            
-            /* Asegurar que el texto siga blanco al pasar el mouse */
-            div.stButton > button:hover, div.stButton > button:active, div.stButton > button:focus {
-                color: #FFFFFF !important;
-                background-color: #B3151A !important;
-                border-color: #B3151A !important;
-            }
-
-            /* Fix para el texto dentro del formulario de Streamlit */
+            /* Asegurar que el texto dentro del párrafo del botón sea blanco */
             div.stButton > button p {
                 color: white !important;
             }
             </style>
         """, unsafe_allow_html=True)
         
-        # Logo de Würth antes del Login
-        st.markdown('<div class="login-logo">', unsafe_allow_html=True)
-        st.image("https://upload.wikimedia.org/wikipedia/commons/b/be/W%C3%BCrth_logo.svg", width=120)
-        st.markdown('</div>', unsafe_allow_html=True)
+        # Logo de Würth centrado antes del acceso
+        st.columns([1, 1, 1])[1].image("https://upload.wikimedia.org/wikipedia/commons/b/be/W%C3%BCrth_logo.svg", width=120)
         
-        st.markdown("<h2 style='text-align: center; color: #ED1C24; margin-top: 0;'>🔒 ACCESO RESTRINGIDO</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #ED1C24;'>🔒 ACCESO RESTRINGIDO</h2>", unsafe_allow_html=True)
         
         with st.container():
             col1, col2, col3 = st.columns([1, 2, 1])
