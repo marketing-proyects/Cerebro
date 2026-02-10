@@ -1,32 +1,35 @@
 import streamlit as st
 
 def gestionar_login():
-    # Inicializamos el estado para evitar que aparezca el "0"
     if "autenticado" not in st.session_state:
         st.session_state["autenticado"] = False
 
     if not st.session_state["autenticado"]:
-        # CSS Ultra-específico para el botón y el logo
+        # CSS para forzar el logo arriba y el texto blanco en el botón
         st.markdown("""
             <style>
-            /* FORZAR TEXTO BLANCO EN EL BOTÓN */
+            /* Centrar logo */
+            .logo-container { display: flex; justify-content: center; margin-bottom: -20px; }
+            
+            /* FORZAR TEXTO BLANCO */
             div.stButton > button {
                 background-color: #ED1C24 !important;
-                color: white !important; /* Blanco sólido */
+                color: white !important;
                 border: 2px solid #ED1C24 !important;
                 font-weight: bold !important;
                 width: 100% !important;
-                height: 3.5em !important;
             }
-            /* Asegurar que el texto dentro del párrafo del botón sea blanco */
+            /* Este es el truco para el texto invisible */
             div.stButton > button p {
                 color: white !important;
             }
             </style>
         """, unsafe_allow_html=True)
         
-        # Logo de Würth centrado antes del acceso
-        st.columns([1, 1, 1])[1].image("https://upload.wikimedia.org/wikipedia/commons/b/be/W%C3%BCrth_logo.svg", width=120)
+        # Logo pre login
+        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
+        st.image("logo_wurth.png", width=120)
+        st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("<h2 style='text-align: center; color: #ED1C24;'>🔒 ACCESO RESTRINGIDO</h2>", unsafe_allow_html=True)
         
