@@ -1,10 +1,13 @@
 import streamlit as st
-import pandas as pd
 from modules.auth_manager import gestionar_login
-from modules.ai_engine import procesar_lote_industrial
 
-# Configuración de página
 st.set_page_config(page_title="CEREBRO - WÜRTH", page_icon="🧠", layout="wide")
+
+# LLAMADA CORRECTA:
+# Si pones st.write(gestionar_login()) o algo similar, aparecerá el "0".
+if gestionar_login():
+    # El resto de tu código solo se ejecuta si el login es exitoso
+    st.markdown("<h1 style='color: #ED1C24;'>🧠 CEREBRO SISTEMA</h1>", unsafe_allow_html=True)
 
 # Estilos Limpios (Fondo Blanco)
 st.markdown("""
