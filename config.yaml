@@ -1,10 +1,26 @@
-credentials:
-  usernames:
-    admin:
-      email: "admin@tuempresa.com"
-      name: "Administrador"
-      password: "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6L6s5866jH6u6u6u"
-cookie:
-  expiry_days: 30
-  key: "llave_secreta_cerebro"
-  name: "cerebro_cookie"
+import streamlit as st
+
+def gestionar_login():
+    # Inicializamos el estado si no existe
+    if "autenticado" not in st.session_state:
+        st.session_state["autenticado"] = False
+
+    if not st.session_state["autenticado"]:
+        st.markdown("<h2 style='color: #00FBFF;'>🔒 ACCESO AL CEREBRO</h2>", unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            user = st.text_input("Usuario")
+            password = st.text_input("Contraseña", type="password")
+            submit = st.form_submit_button("INGRESAR")
+
+            if submit:
+                # Comprobamos contra los Secretos de la App
+                # Puedes usar 'admin' y '123' temporalmente aquí para probar
+                if user == "admin" and password == "123":
+                    st.session_state["autenticado"] = True
+                    st.rerun()
+                else:
+                    st.error("Credenciales no autorizadas")
+        return False
+    
+    return True
