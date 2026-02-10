@@ -4,7 +4,7 @@ from modules.auth_manager import gestionar_login
 from modules.ai_engine import procesar_lote_industrial
 
 # Configuración de página
-st.set_page_config(page_title="CEREBRO - MARKET RESEARCH", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="CEREBRO - MARKET RESEARCH - BY W-UY", page_icon="🧠", layout="wide")
 
 # Estilos Futuristas
 st.markdown("""
