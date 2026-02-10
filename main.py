@@ -4,7 +4,7 @@ from modules.auth_manager import gestionar_login
 from modules.data_processor import cargar_archivo
 from modules.ai_engine import procesar_lote_industrial
 
-st.set_page_config(page_title="Cerebro Industrial", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="CEREBRO - WÜRTH - MARKET INTEL", page_icon="🧠", layout="wide")
 
 # Estilos Futuristas Minimalistas
 st.markdown("""
