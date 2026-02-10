@@ -3,7 +3,7 @@ credentials:
     admin:
       email: "admin@tuempresa.com"
       name: "Administrador"
-      password: "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6L6s5866jH6u6u6u"
+      password: "$2b$12$N9H0Z5GfWlO6m9C.fS4ApeV0oH8mI0V/f0K7B5G5G5G5G5G5G5G5G"
 cookie:
   expiry_days: 30
   key: "llave_secreta_cerebro"
