@@ -3,8 +3,8 @@ credentials:
     admin:
       email: "admin@tuempresa.com"
       name: "Administrador"
-      password: "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6L6s5866jH6u6u6u" # Este es el hash 123'
+      password: "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6L6s5866jH6u6u6u"
 cookie:
   expiry_days: 30
-  key: "alguna_llave_aleatoria"
+  key: "llave_secreta_cerebro"
   name: "cerebro_cookie"
