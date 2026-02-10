@@ -1,89 +1,71 @@
 import requests
 from bs4 import BeautifulSoup
-import openai
 import streamlit as st
-import json
+import pandas as pd
 
 def obtener_tc_real_brou():
-    """
-    Consulta la cotización de 'e-Brou Venta' en la web oficial del BROU.
-    """
+    """Consulta la cotización de e-Brou Venta"""
     url = "https://www.brou.com.uy/web/guest/cotizaciones"
     try:
-        # En un entorno real, requests podría ser bloqueado, 
-        # pero para el BROU suele funcionar con un User-Agent.
         headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Lógica de búsqueda en la tabla de cotizaciones
-        # Nota: Si el selector cambia, la IA puede ayudar a ajustarlo.
-        # Por ahora, usamos un valor de retorno seguro para la demo.
+        # Simulación de extracción del valor real del BROU
+        # En producción, se usaría BeautifulSoup para capturar el valor exacto de la tabla
         return 42.85 
-    except Exception as e:
-        st.sidebar.warning(f"No se pudo obtener T/C en vivo: {e}")
-        return 43.00 # Fallback de seguridad
+    except Exception:
+        return 43.00 # Fallback
 
-def procesar_lista_productos(df):
-    """
-    Recorre el DataFrame del usuario y analiza cada link con la lógica de experto.
-    """
+def procesar_investigacion_industrial(df):
+    """Procesa cada fila de la ficha técnica con la IA"""
     tc_dia = obtener_tc_real_brou()
-    resultados = []
+    st.sidebar.info(f"Cotización BROU aplicada: ${tc_dia}")
     
+    resultados = []
     progreso = st.progress(0)
     total = len(df)
 
     for index, row in df.iterrows():
-        # Actualizar progreso
         progreso.progress((index + 1) / total)
         
-        # Datos de entrada del usuario
-        nombre_prod = row['Producto']
-        precio_user = row['Precio Propio']
-        url_target = row['URL Competidor']
+        # Extraemos las celdas independientes
+        nombre = row['Nombre']
+        espec = row['Especificación']
+        material = row['Material/Norma']
+        ues = [row['UE 1'], row['UE 2'], row['UE 3']]
+        url_comp = row['URL Competidor']
 
-        # Llamada simulada a la IA (Aquí conectarías con OpenAI API)
-        # El prompt incluiría todas las reglas del mercado uruguayo
-        datos_ia = ejecutar_analisis_ia(url_target, nombre_prod, precio_user, tc_dia)
+        # Lógica de razonamiento del Experto (Simulada para integración)
+        # Aquí la IA compararía (Nombre + Espec + Material) contra la web
+        datos_ia = {
+            "tienda": "Ferretería Industrial UY",
+            "precio_encontrado": 1200.0,
+            "moneda": "USD",
+            "ue_detectada": 100,
+            "es_oferta": True,
+            "alerta": "OFERTA: Descuento por liquidación de stock.",
+            "confianza": 0.98
+        }
+
+        # Cálculo de Precio Unitario Competidor (con T/C si es USD)
+        precio_en_pesos = datos_ia["precio_encontrado"]
+        if datos_ia["moneda"] == "USD":
+            precio_en_pesos = datos_ia["precio_encontrado"] * tc_dia
         
-        # Consolidar fila de resultados
+        precio_unit_comp = precio_en_pesos / datos_ia["ue_detectada"]
+        
+        # Comparación contra la UE 1 del usuario (Precio Propio / Cantidad UE 1)
+        precio_unit_propio = row['Precio Propio (Ref)'] / ues[0]
+
         resultados.append({
-            "SKU": row['SKU'],
-            "Producto": nombre_prod,
-            "Tu Precio": precio_user,
+            "Producto": f"{nombre} {espec}",
+            "Material": material,
+            "Precio Unit. Propio": round(precio_unit_propio, 2),
+            "Precio Unit. Comp.": round(precio_unit_comp, 2),
+            "Gap %": round(((precio_unit_comp - precio_unit_propio) / precio_unit_propio) * 100, 2),
             "Tienda": datos_ia["tienda"],
-            "Match": datos_ia["match_nombre"],
-            "Confianza": f"{datos_ia['confianza']*100}%",
-            "Moneda Orig.": datos_ia["moneda_original"],
-            "Precio Web": datos_ia["precio_publicado"],
-            "U.E.": datos_ia["unidad_empaque"],
-            "Precio Unit. Comp.": datos_ia["precio_unitario_uyu"],
-            "Diferencia %": round(((datos_ia["precio_unitario_uyu"] - precio_user) / precio_user) * 100, 2),
+            "Formato Rival": f"Pack x{datos_ia['ue_detectada']}",
             "Es Oferta": datos_ia["es_oferta"],
-            "Alerta": datos_ia["mensaje_alerta"],
-            "Sugerencia": datos_ia["sugerencia"]
+            "Alerta": datos_ia["alerta"],
+            "Link": url_comp
         })
     
     return resultados
-
-def ejecutar_analisis_ia(url, nombre, precio_ref, tc):
-    """
-    Esta función representa la lógica del Súper Prompt enviado a la API de OpenAI.
-    """
-    # Aquí es donde la IA aplica la "Creatividad" que mencionaste para 
-    # detectar packs, conversiones de moneda y ofertas en Uruguay.
-    
-    # Simulación de respuesta estructurada (JSON)
-    return {
-        "match_nombre": f"Producto detectado en {url[:20]}...",
-        "confianza": 0.95,
-        "tienda": "Retail Uruguayo",
-        "moneda_original": "USD",
-        "precio_publicado": 100.0,
-        "unidad_empaque": 1,
-        "precio_unitario_uyu": 100.0 * tc,
-        "es_oferta": True,
-        "mensaje_alerta": "OFERTA DETECTADA: Descuento por Cyberlunes.",
-        "sugerencia": "Mantener precio, el rival está en liquidación temporal."
-    }
