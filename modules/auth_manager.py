@@ -1,36 +1,41 @@
 import streamlit as st
-import os
 
 def gestionar_login():
     if "autenticado" not in st.session_state:
         st.session_state["autenticado"] = False
 
     if not st.session_state["autenticado"]:
-        # CSS para forzar el botón rojo con texto blanco y logo
+        # CSS para fondo blanco y botones rojos legibles
         st.markdown("""
             <style>
+            /* Fondo blanco para el área de login */
+            .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
+            
+            /* Logo centrado */
             .logo-container { display: flex; justify-content: center; margin-bottom: 20px; }
+            
+            /* Botón Rojo con texto Blanco Garantizado */
             div.stButton > button {
                 background-color: #ED1C24 !important;
                 color: white !important;
-                border: 2px solid #ED1C24 !important;
+                border: none !important;
                 font-weight: bold !important;
                 width: 100% !important;
+                height: 3em !important;
             }
             div.stButton > button p { color: white !important; }
+            
+            /* Inputs con borde gris suave */
+            .stTextInput > div > div > input { border-color: #CCCCCC !important; }
             </style>
         """, unsafe_allow_html=True)
         
-        # LOGO LOCAL: Cambia 'nombre_de_tu_logo.png' por el nombre real en GitHub
-        nombre_logo = "logo_wurth.png" 
-        
+        # Logo de Würth
         st.markdown('<div class="logo-container">', unsafe_allow_html=True)
-        if os.path.exists(nombre_logo):
-            st.image(nombre_logo, width=120)
-        else:
-            # Si el logo falla, usamos el texto para que la pantalla no quede en blanco
-            st.markdown("<h1 style='text-align: center; color: #ED1C24;'>WÜRTH</h1>", unsafe_allow_html=True)
+        st.image("https://upload.wikimedia.org/wikipedia/commons/b/be/W%C3%BCrth_logo.svg", width=150)
         st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown("<h2 style='text-align: center; color: #ED1C24;'>🔒 ACCESO AL SISTEMA</h2>", unsafe_allow_html=True)
         
         with st.container():
             col1, col2, col3 = st.columns([1, 2, 1])
@@ -38,7 +43,7 @@ def gestionar_login():
                 with st.form("login_form"):
                     user = st.text_input("Usuario")
                     password = st.text_input("Contraseña", type="password")
-                    if st.form_submit_button("INGRESAR AL SISTEMA"):
+                    if st.form_submit_button("INGRESAR"):
                         if user == "admin" and password == "123":
                             st.session_state["autenticado"] = True
                             st.session_state["username"] = user
