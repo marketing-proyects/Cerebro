@@ -5,6 +5,7 @@ from modules.ai_engine import procesar_lote_industrial
 
 st.set_page_config(page_title="CEREBRO - WÜRTH", page_icon="🧠", layout="wide")
 
+# Estilo de trabajo limpio
 st.markdown("""
     <style>
     .stApp { background-color: #FFFFFF; color: #333333; }
@@ -14,35 +15,36 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Validación de acceso - Sin st.write para evitar el '0'
 if gestionar_login():
-    # Barra lateral limpia
-    st.sidebar.markdown(f"**Usuario:** {st.session_state.get('username', 'admin')}")
+    # Menú lateral limpio sin imágenes
+    st.sidebar.markdown(f"**Sesión activa:** {st.session_state.get('username', 'admin')}")
     
     st.markdown("<h1>🧠 CEREBRO SISTEMA</h1>", unsafe_allow_html=True)
-    st.subheader("Investigación de Mercado Inteligente")
+    st.subheader("Investigación Estratégica de Mercado")
     st.write("---")
 
-    archivo = st.file_uploader("Subir Inventario (.xlsx, .xlsm)", type=['xlsx', 'xlsm'], key="main_final_prod")
+    archivo = st.file_uploader("Subir archivo de prueba (.xlsx, .xlsm)", type=['xlsx', 'xlsm'], key="main_v11")
     
     if archivo:
+        # Cargamos los datos asegurando que se lean como texto
         df = pd.read_excel(archivo, dtype=str, engine='openpyxl')
-        # Mapeo de tus columnas
+        
+        # Mapeamos Nombre y Especificación (tus columnas del Excel)
         mapeo = {'Nombre': 'Material', 'Especificación': 'Descripción'}
         df = df.rename(columns=mapeo)
         
-        st.write("### 🔍 Vista Previa de Datos Detectados")
+        st.write("### 🔍 Vista previa de productos")
         st.dataframe(df.head(10), use_container_width=True)
         
-        if st.button("INICIAR INVESTIGACIÓN ESTRATÉGICA"):
-            with st.spinner("La IA está buscando equivalentes en Uruguay..."):
+        if st.button("BUSCAR COMPETENCIA EN URUGUAY"):
+            with st.spinner("IA analizando términos como 'Adhesivo' o 'Cianocrilato'..."):
                 resultados = procesar_lote_industrial(df)
             
             if resultados:
-                st.success("INVESTIGACIÓN FINALIZADA")
+                st.success("ANÁLISIS COMPLETADO")
                 st.dataframe(pd.DataFrame(resultados), use_container_width=True)
             else:
-                st.error("No se encontraron coincidencias. La IA requiere palabras clave claras en la descripción.")
+                st.error("No se encontraron coincidencias. Revise los términos de descripción.")
 
     if st.sidebar.button("CERRAR SESIÓN"):
         st.session_state["autenticado"] = False
