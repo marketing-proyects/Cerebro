@@ -17,9 +17,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-autenticado, usuario = gestionar_login()
+# --- CAMBIO CRÍTICO AQUÍ ---
+# Llamamos a la función. Ella se encarga de mostrar el formulario.
+gestionar_login()
 
-if autenticado:
+# Verificamos el estado de autenticación desde el session_state
+if st.session_state.get("authentication_status"):
+    usuario = st.session_state.get("username")
+    
     st.sidebar.markdown(f"<h3 style='color: #00FBFF;'>⚙️ SESIÓN: {usuario}</h3>", unsafe_allow_html=True)
     st.markdown("<h1>🧠 CEREBRO SISTEMA ⚙️</h1>", unsafe_allow_html=True)
     st.write("Investigación de Mercado Automática para Inventarios Técnicos")
@@ -49,8 +54,9 @@ if autenticado:
                 "text/csv"
             )
 
-    if st.sidebar.button("CERRAR SESIÓN"):
-        st.session_state["authenticator"].logout('main')
-        st.rerun()
+# Si no está autenticado, el formulario de login ya se mostró arriba
+elif st.session_state.get("authentication_status") is False:
+    st.error("Usuario o contraseña incorrectos")
 else:
     st.markdown("<h2 style='text-align: center; color: #00FBFF;'>ACCESO RESTRINGIDO</h2>", unsafe_allow_html=True)
+    st.info("Por favor, ingrese sus credenciales en el formulario.")
