@@ -5,15 +5,21 @@ def gestionar_login():
         st.session_state["autenticado"] = False
 
     if not st.session_state["autenticado"]:
+        # CSS para forzar el texto blanco y el fondo rojo sólido
         st.markdown("""
             <style>
-            /* Botón de Login Sólido */
             div.stButton > button {
                 background-color: #ED1C24 !important;
-                color: black !important;
-                border: red !important;
-                height: 3em !important;
+                color: white !important;
+                border: 2px solid #ED1C24 !important;
+                font-weight: bold !important;
                 width: 100% !important;
+                height: 3em !important;
+            }
+            div.stButton > button:hover {
+                background-color: #B3151A !important;
+                color: white !important;
+                border-color: #B3151A !important;
             }
             </style>
         """, unsafe_allow_html=True)
@@ -26,6 +32,7 @@ def gestionar_login():
                 with st.form("login_form"):
                     user = st.text_input("Usuario")
                     password = st.text_input("Contraseña", type="password")
+                    # El botón ahora heredará el estilo del CSS de arriba
                     if st.form_submit_button("INGRESAR AL SISTEMA"):
                         if user == "admin" and password == "123":
                             st.session_state["autenticado"] = True
