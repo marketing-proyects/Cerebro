@@ -3,3 +3,5 @@ streamlit-authenticator
 pyyaml
 pandas
 openpyxl
+requests
+beautifulsoup4
