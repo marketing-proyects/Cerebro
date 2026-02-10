@@ -20,21 +20,22 @@ def gestionar_login():
         config['cookie']['expiry_days']
     )
 
-    # 3. Renderizar el formulario (esta es la parte que causaba el TypeError)
-    # En las versiones nuevas, login() maneja el estado internamente
+    # 3. Ejecutar el login
+    # En versiones nuevas, esto ya no devuelve (name, status, username) directamente
     authenticator.login(location='main')
 
-    # 4. Validar el acceso usando el estado de la sesión
-    if st.session_state["authentication_status"]:
+    # 4. Verificar el estado usando el session_state de Streamlit
+    # Esto elimina el TypeError que ves en tu imagen
+    if st.session_state.get("authentication_status"):
         authenticator.logout('Cerrar Sesión', 'sidebar')
         return True, st.session_state["username"]
     
-    elif st.session_state["authentication_status"] is False:
+    elif st.session_state.get("authentication_status") is False:
         st.error('Usuario o contraseña incorrectos')
         return False, None
     
-    elif st.session_state["authentication_status"] is None:
-        st.warning('Por favor, ingrese su usuario y contraseña')
+    elif st.session_state.get("authentication_status") is None:
+        st.warning('Por favor, ingrese sus credenciales.')
         return False, None
     
     return False, None
