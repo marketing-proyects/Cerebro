@@ -1,40 +1,47 @@
 import streamlit as st
+import pandas as pd
 from modules.auth_manager import gestionar_login
+from modules.ai_engine import procesar_lote_industrial
 
-st.set_page_config(page_title="CEREBRO - WÜRTH", page_icon="🧠", layout="wide")
+# 1. Configuración de página
+st.set_page_config(
+    page_title="CEREBRO - WÜRTH", 
+    page_icon="🧠", 
+    layout="wide"
+)
 
-# LLAMADA CORRECTA:
-# Si pones st.write(gestionar_login()) o algo similar, aparecerá el "0".
-if gestionar_login():
-    # El resto de tu código solo se ejecuta si el login es exitoso
-    st.markdown("<h1 style='color: #ED1C24;'>🧠 CEREBRO SISTEMA</h1>", unsafe_allow_html=True)
-
-# Estilos Limpios (Fondo Blanco)
+# 2. Estilos para Fondo Blanco y Botones Rojos
 st.markdown("""
     <style>
-    /* Fondo y texto base */
+    /* Fondo blanco y texto oscuro */
     .stApp { background-color: #FFFFFF; color: #333333; }
     
-    /* Encabezados en Rojo */
+    /* Títulos en Rojo Würth */
     h1, h2, h3 { color: #ED1C24 !important; }
     
-    /* Botones: Rojo sólido con texto blanco */
+    /* Botones: Fondo Rojo, Texto Blanco */
     div.stButton > button {
         background-color: #ED1C24 !important;
         color: white !important;
-        border: 1px solid #ED1C24 !important;
+        border: none !important;
         font-weight: bold !important;
     }
+    /* Forzar visibilidad del texto en el botón */
     div.stButton > button p { color: white !important; }
     
-    /* Tabs (Pestañas) */
+    /* Pestañas personalizadas */
     .stTabs [data-baseweb="tab-list"] { gap: 20px; }
-    .stTabs [aria-selected="true"] { color: #ED1C24 !important; border-bottom-color: #ED1C24 !important; }
+    .stTabs [aria-selected="true"] { 
+        color: #ED1C24 !important; 
+        border-bottom-color: #ED1C24 !important; 
+    }
     </style>
     """, unsafe_allow_html=True)
 
+# 3. Validación de Acceso (Sin st.write para evitar el "0")
 if gestionar_login():
-    # Encabezado con Logo
+    
+    # ENCABEZADO: Logo Detalle y Título
     col_l, col_t = st.columns([1, 10])
     with col_l:
         st.image("https://upload.wikimedia.org/wikipedia/commons/b/be/W%C3%BCrth_logo.svg", width=80)
@@ -43,37 +50,51 @@ if gestionar_login():
     
     st.divider()
 
-    # Pestañas Departamentales
+    # 4. Pestañas de Departamentos (Eliminada la de Marca)
     tab1, tab2, tab3 = st.tabs(["📊 INTELIGENCIA DE MERCADO", "📦 LOGÍSTICA", "💼 COMERCIAL"])
 
     with tab1:
         st.subheader("Investigación de Precios y Competencia")
-        archivo = st.file_uploader("Subir Inventario Würth (xlsx)", type=['xlsx'])
+        st.write("Cargue su inventario para que la IA analice el mercado.")
+        
+        # Cargador de archivos (Mantiene los ceros a la izquierda de los códigos Würth)
+        archivo = st.file_uploader("Subir Inventario (xlsx)", type=['xlsx'], key="main_up")
         
         if archivo:
-            # Forzamos lectura de códigos de material como texto
+            # Forzamos 'Material' a string para no perder el formato 089...
             df = pd.read_excel(archivo, dtype={'Material': str})
+            
             st.write("### 🔍 Vista Previa")
             st.dataframe(df.head(10), use_container_width=True)
             
             if st.button("EJECUTAR ANÁLISIS ESTRATÉGICO"):
-                with st.spinner("La IA está analizando los códigos de Würth..."):
+                with st.spinner("IA analizando competencia..."):
+                    # Motor de IA para el SaaS de investigación
                     resultados = procesar_lote_industrial(df)
-                st.success("Análisis completado con éxito")
+                
+                st.success("ANÁLISIS COMPLETADO")
                 df_final = pd.DataFrame(resultados)
                 st.dataframe(df_final, use_container_width=True)
+                
+                st.download_button(
+                    "DESCARGAR REPORTE CSV",
+                    df_final.to_csv(index=False).encode('utf-8'),
+                    "reporte_mercado.csv",
+                    "text/csv"
+                )
 
     with tab2:
-        st.subheader("Optimización de Stock")
-        st.info("Módulo para gestión técnica de materiales.")
+        st.subheader("Gestión de Stock")
+        st.info("Módulo de optimización logística.")
 
     with tab3:
         st.subheader("Estrategia Comercial")
-        st.info("Módulo para análisis de márgenes de venta.")
+        st.info("Módulo de análisis de ventas.")
 
-    # Sidebar
+    # 5. Barra Lateral
     st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/b/be/W%C3%BCrth_logo.svg", width=100)
-    st.sidebar.markdown(f"**Usuario:** {st.session_state['username']}")
+    st.sidebar.write(f"**Usuario:** {st.session_state['username']}")
+    
     if st.sidebar.button("CERRAR SESIÓN"):
         st.session_state["autenticado"] = False
         st.rerun()
