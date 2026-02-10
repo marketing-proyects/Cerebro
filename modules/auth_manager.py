@@ -4,11 +4,10 @@ import yaml
 from yaml.loader import SafeLoader
 
 def gestionar_login():
-    # Cargar configuración desde el YAML
     with open('config.yaml') as file:
         config = yaml.load(file, Loader=SafeLoader)
 
-    # Crear el objeto autenticador
+    # Inicializar el autenticador con la estructura exacta del YAML
     authenticator = stauth.Authenticate(
         config['credentials'],
         config['cookie']['name'],
@@ -17,18 +16,14 @@ def gestionar_login():
     )
 
     # Renderizar el formulario de login
-    # En versiones nuevas, el login no devuelve valores directamente
-    authenticator.login(location='main')
+    # Nota: El nombre del usuario en el YAML debe ser 'admin'
+    name, authentication_status, username = authenticator.login('main')
 
-    # Guardar el autenticador en el estado de la sesión para usar el logout luego
-    st.session_state["authenticator"] = authenticator
-
-    # Verificar el estado de autenticación desde el session_state
-    if st.session_state["authentication_status"]:
-        return True, st.session_state["username"]
-    elif st.session_state["authentication_status"] is False:
+    if authentication_status:
+        return True, username
+    elif authentication_status == False:
         st.error('Usuario o contraseña incorrectos')
         return False, None
-    else:
+    elif authentication_status == None:
         st.warning('Por favor, ingrese su usuario y contraseña')
         return False, None
