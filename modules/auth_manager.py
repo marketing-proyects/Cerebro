@@ -3,16 +3,12 @@ import streamlit_authenticator as stauth
 import yaml
 from yaml.loader import SafeLoader
 
-def cargar_configuracion():
-    # En una fase avanzada, estos usuarios vendrán de una Base de Datos (ej. Supabase)
-    # Por ahora, usamos un archivo config.yaml para definir usuarios
+def gestionar_login():
+    # Cargar configuración desde el YAML
     with open('config.yaml') as file:
         config = yaml.load(file, Loader=SafeLoader)
-    return config
 
-def gestionar_login():
-    config = cargar_configuracion()
-
+    # Crear el objeto autenticador
     authenticator = stauth.Authenticate(
         config['credentials'],
         config['cookie']['name'],
@@ -20,15 +16,19 @@ def gestionar_login():
         config['cookie']['expiry_days']
     )
 
-    # Renderiza el formulario de login en la UI
-    name, authentication_status, username = authenticator.login('main')
+    # Renderizar el formulario de login
+    # En versiones nuevas, el login no devuelve valores directamente
+    authenticator.login(location='main')
 
-    if authentication_status:
-        st.session_state["authenticator"] = authenticator
-        return True, username
-    elif authentication_status is False:
-        st.error('Usuario/Contraseña incorrectos')
+    # Guardar el autenticador en el estado de la sesión para usar el logout luego
+    st.session_state["authenticator"] = authenticator
+
+    # Verificar el estado de autenticación desde el session_state
+    if st.session_state["authentication_status"]:
+        return True, st.session_state["username"]
+    elif st.session_state["authentication_status"] is False:
+        st.error('Usuario o contraseña incorrectos')
         return False, None
-    elif authentication_status is None:
-        st.warning('Por favor, introduce tu usuario y contraseña')
+    else:
+        st.warning('Por favor, ingrese su usuario y contraseña')
         return False, None
