@@ -1,26 +1,17 @@
 import openai
-import requests
-from bs4 import BeautifulSoup
 import streamlit as st
 import json
-import re
+import pandas as pd
 
 def limpiar_y_optimizar_descripcion(texto_sucio):
-    """
-    Transforma descripciones tipo 'CINTA-ADH-TELA-NEGRO-19MMX25M' 
-    en 'Cinta adhesiva de tela negra 19mm x 25m'
-    """
+    """Limpia la descripción para que la IA busque mejor"""
+    if pd.isna(texto_sucio): return "Producto desconocido"
+    
     client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-    
     prompt = f"""
-    Eres un experto en suministros industriales en Uruguay. 
-    Traduce esta descripción técnica de inventario a una frase de búsqueda comercial:
+    Traduce esta descripción técnica a una frase comercial para Uruguay:
     '{texto_sucio}'
-    
-    REGLAS:
-    1. Elimina códigos internos y guiones innecesarios.
-    2. Mantén medidas (ML, KG, MM, L).
-    3. Responde SOLAMENTE con la frase optimizada.
+    REGLAS: Responde SOLAMENTE con la frase optimizada sin códigos internos.
     """
     try:
         response = client.chat.completions.create(
@@ -30,80 +21,67 @@ def limpiar_y_optimizar_descripcion(texto_sucio):
         )
         return response.choices[0].message.content
     except:
-        # Si falla la API, limpiamos guiones manualmente como respaldo
-        return texto_sucio.replace("-", " ")
+        return str(texto_sucio).replace("-", " ")
 
-def obtener_tc_real_brou():
-    """Consulta la cotización e-Brou"""
-    try:
-        # Valor base para Uruguay en 2026
-        return 42.85 
-    except:
-        return 43.00
-
-def ejecutar_analisis_ia(sku, descripcion_original, tc_dia):
-    """
-    Investiga el producto en el mercado uruguayo basado en la descripción optimizada.
-    """
+def ejecutar_analisis_ia(sku, descripcion_original):
+    """Analiza el mercado uruguayo"""
+    # LIMPIEZA CRÍTICA: Quitamos el apóstrofe o coma que pusimos para el Excel
+    sku_limpio = str(sku).replace("'", "").replace("´", "").strip()
     desc_optima = limpiar_y_optimizar_descripcion(descripcion_original)
     
-    # Aquí la IA simula la búsqueda y análisis del contenido web
-    # En una fase avanzada, aquí conectaríamos con una herramienta de búsqueda (Search)
     client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
-    prompt_sistema = f"Analista de Mercado Uruguay. T/C BROU: {tc_dia}"
     prompt_usuario = f"""
-    Investiga el producto: {desc_optima} (SKU Original: {sku})
-    
-    Busca competidores en Uruguay.
-    Responde en JSON con datos realistas de mercado:
+    Producto: {desc_optima} (SKU: {sku_limpio})
+    Busca competidores en Uruguay y responde en JSON:
     {{
-        "match_nombre": "Nombre comercial encontrado",
+        "match_nombre": "Nombre comercial",
         "precio_competidor": 0.0,
-        "moneda": "USD/UYU",
-        "unidad_empaque": "Presentación (ej: 1L, Pack x12)",
+        "moneda": "USD",
+        "unidad_empaque": "Presentación",
         "es_oferta": false,
-        "alerta": "Observaciones técnicas",
-        "sugerencia": "Acción recomendada",
-        "tienda": "Nombre del competidor"
+        "sugerencia": "Acción",
+        "tienda": "Competidor"
     }}
     """
-
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
-            messages=[{"role": "system", "content": prompt_sistema}, {"role": "user", "content": prompt_usuario}],
+            messages=[{"role": "user", "content": prompt_usuario}],
             response_format={ "type": "json_object" }
         )
         data = json.loads(response.choices[0].message.content)
-        data['desc_busqueda'] = desc_optima # Guardamos la traducción para el reporte
+        data['desc_busqueda'] = desc_optima
+        data['sku_procesado'] = sku_limpio
         return data
     except:
         return None
 
 def procesar_lote_industrial(df):
-    tc_dia = obtener_tc_real_brou()
     resultados = []
     progreso = st.progress(0)
     
-    # Mapeo de columnas flexible para tu Excel
-    col_sku = 'Material' if 'Material' in df.columns else df.columns[0]
-    col_desc = 'Texto breve de material' if 'Texto breve de material' in df.columns else df.columns[1]
+    # MAPEADO FLEXIBLE: Buscamos tus columnas actuales
+    posibles_skus = ['Nombre', 'Material', 'SKU', 'Codigo']
+    posibles_descs = ['Especificación', 'Descripción', 'Texto breve de material', 'Desc']
+    
+    col_sku = next((c for c in posibles_skus if c in df.columns), df.columns[0])
+    col_desc = next((c for c in posibles_descs if c in df.columns), df.columns[1])
 
     for index, row in df.iterrows():
         progreso.progress((index + 1) / len(df))
         
-        datos = ejecutar_analisis_ia(row[col_sku], row[col_desc], tc_dia)
+        # Saltamos filas vacías
+        if pd.isna(row[col_sku]) and pd.isna(row[col_desc]):
+            continue
+            
+        datos = ejecutar_analisis_ia(row[col_sku], row[col_desc])
         
         if datos:
             resultados.append({
-                "SKU": row[col_sku],
-                "Descripción Original": row[col_desc],
-                "Búsqueda Realizada": datos['desc_busqueda'],
+                "SKU Original": datos['sku_procesado'],
+                "Producto": datos['desc_busqueda'],
                 "Competidor": datos['tienda'],
-                "Precio Comp.": f"{datos['moneda']} {datos['precio_competidor']}",
-                "Presentación": datos['unidad_empaque'],
-                "¿Es Oferta?": "SÍ" if datos['es_oferta'] else "No",
+                "Precio Mercado": f"{datos['moneda']} {datos['precio_competidor']}",
                 "Sugerencia": datos['sugerencia']
             })
     return resultados
