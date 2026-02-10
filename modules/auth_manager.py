@@ -1,41 +1,42 @@
 import streamlit as st
+import os
 
 def gestionar_login():
     if "autenticado" not in st.session_state:
         st.session_state["autenticado"] = False
 
     if not st.session_state["autenticado"]:
-        # CSS para fondo blanco y botones rojos legibles
+        # Estilos para fondo blanco y botón rojo
         st.markdown("""
             <style>
-            /* Fondo blanco para el área de login */
-            .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
-            
-            /* Logo centrado */
+            .stApp { background-color: #FFFFFF !important; }
             .logo-container { display: flex; justify-content: center; margin-bottom: 20px; }
-            
-            /* Botón Rojo con texto Blanco Garantizado */
             div.stButton > button {
                 background-color: #ED1C24 !important;
                 color: white !important;
                 border: none !important;
                 font-weight: bold !important;
                 width: 100% !important;
-                height: 3em !important;
             }
+            /* Esto arregla el texto que no se lee */
             div.stButton > button p { color: white !important; }
-            
-            /* Inputs con borde gris suave */
-            .stTextInput > div > div > input { border-color: #CCCCCC !important; }
             </style>
         """, unsafe_allow_html=True)
         
-        # Logo de Würth
+        # --- SOLUCIÓN LOGO ---
         st.markdown('<div class="logo-container">', unsafe_allow_html=True)
-        st.image("https://upload.wikimedia.org/wikipedia/commons/b/be/W%C3%BCrth_logo.svg", width=150)
+        
+        # Intentamos cargar tu PNG local
+        ruta_logo = "logo_wurth.png" 
+        if os.path.exists(ruta_logo):
+            st.image(ruta_logo, width=150)
+        else:
+            # Si el archivo no existe, mostramos el logo oficial por URL para evitar el "0"
+            st.image("https://upload.wikimedia.org/wikipedia/commons/b/be/W%C3%BCrth_logo.svg", width=150)
+        
         st.markdown('</div>', unsafe_allow_html=True)
         
-        st.markdown("<h2 style='text-align: center; color: #ED1C24;'>🔒 ACCESO AL SISTEMA</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #ED1C24; margin-top:0;'>🔒 ACCESO AL SISTEMA</h2>", unsafe_allow_html=True)
         
         with st.container():
             col1, col2, col3 = st.columns([1, 2, 1])
