@@ -5,10 +5,10 @@ from modules.ai_engine import procesar_lote_industrial
 
 st.set_page_config(page_title="CEREBRO - WÜRTH", page_icon="🧠", layout="wide")
 
-# Ejecutar lógica de login
+# Ejecutamos la lógica de login
 gestionar_login()
 
-# Verificar si el usuario logró entrar
+# Verificamos si el usuario logró entrar mediante el estado de sesión
 if st.session_state.get("authentication_status"):
     usuario = st.session_state.get("username")
     st.sidebar.success(f"Sesión: {usuario}")
@@ -21,7 +21,7 @@ if st.session_state.get("authentication_status"):
         st.dataframe(df.head(10))
         
         if st.button("EJECUTAR INVESTIGACIÓN"):
-            with st.spinner("Analizando..."):
+            with st.spinner("Analizando mercado..."):
                 resultados = procesar_lote_industrial(df)
             st.success("FINALIZADO")
             st.dataframe(pd.DataFrame(resultados))
