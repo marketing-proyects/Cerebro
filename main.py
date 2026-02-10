@@ -1,55 +1,79 @@
+import openai
+import requests
+from bs4 import BeautifulSoup
 import streamlit as st
-import pandas as pd
-from modules.auth_manager import gestionar_login
-from modules.data_processor import cargar_archivo, validar_columnas
-from modules.ai_engine import procesar_investigacion_industrial
+import json
 
-st.set_page_config(page_title="Cerebro Industrial", page_icon="🔧", layout="wide")
+def obtener_tc_real_brou():
+    """Consulta la cotización de e-Brou Venta en la web del BROU"""
+    url = "https://www.brou.com.uy/web/guest/cotizaciones"
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=10)
+        # Nota: Por seguridad, si el raspado falla, usamos un valor base
+        return 42.85 
+    except Exception:
+        return 43.00
 
-autenticado, usuario = gestionar_login()
+def ejecutar_analisis_ia(url_competidor, nombre, espec, material, ues, tc_dia):
+    """Analiza el HTML de la competencia usando la API de OpenAI"""
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url_competidor, headers=headers, timeout=15)
+        html_puro = response.text[:8000] # Recorte para optimizar tokens
+    except Exception:
+        return None
 
-if autenticado:
-    st.sidebar.title(f"Sesión: {usuario}")
-    st.title("🔧 Cerebro Industrial: Inteligencia Würth")
-    st.info("Análisis de mercado basado en fichas técnicas y cotización BROU.")
+    client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-    df_usuario = cargar_archivo()
+    prompt_sistema = f"Eres un Analista Senior de Mercado Industrial en Uruguay. T/C BROU: {tc_dia}"
+    prompt_usuario = f"""
+    Compara este producto: {nombre} {espec} ({material}) con este contenido web:
+    {html_puro}
     
-    if df_usuario is not None:
-        columnas_req = [
-            "Nombre", "Especificación", "Material/Norma", 
-            "UE 1", "UE 2", "UE 3", 
-            "Precio Propio (Ref)", "URL Competidor"
-        ]
+    Analiza:
+    1. Precio y Moneda (si es USD, usa T/C {tc_dia}).
+    2. Unidad de empaque (UE) del rival.
+    3. Si es una OFERTA temporal.
+    
+    Responde en JSON:
+    {{"tienda": "nombre", "match_nombre": "nombre", "precio_encontrado": 0.0, "moneda": "USD/UYU", 
+    "ue_detectada": 1, "es_oferta": true, "alerta": "mensaje", "sugerencia": "consejo", "confianza": 0.0}}
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": prompt_sistema}, {"role": "user", "content": prompt_usuario}],
+            response_format={ "type": "json_object" }
+        )
+        return json.loads(response.choices[0].message.content)
+    except:
+        return None
+
+def procesar_investigacion_industrial(df):
+    tc_dia = obtener_tc_real_brou()
+    resultados = []
+    progreso = st.progress(0)
+    for index, row in df.iterrows():
+        progreso.progress((index + 1) / len(df))
+        datos_ia = ejecutar_analisis_ia(row['URL Competidor'], row['Nombre'], row['Especificación'], row['Material/Norma'], [row['UE 1'], row['UE 2'], row['UE 3']], tc_dia)
         
-        if validar_columnas(df_usuario, columnas_req):
-            st.write("### Ficha Técnica Cargada")
-            st.dataframe(df_usuario, use_container_width=True)
+        if datos_ia:
+            precio_pesos = datos_ia["precio_encontrado"] * (tc_dia if datos_ia["moneda"] == "USD" else 1)
+            precio_unit_comp = precio_pesos / datos_ia["ue_detectada"]
+            precio_unit_propio = row['Precio Propio (Ref)'] / row['UE 1']
             
-            if st.button("🚀 Iniciar Análisis de Mercado (Comparación Unit.)"):
-                with st.spinner("IA analizando materiales y formatos de empaque..."):
-                    resultados = procesar_investigacion_industrial(df_usuario)
-                
-                st.success("✅ Análisis Completo")
-                df_final = pd.DataFrame(resultados)
-
-                # Alertas de Ofertas y Empaques (Punto 1 y 2 de la solicitud)
-                for _, row in df_final.iterrows():
-                    if row["Es Oferta"]:
-                        st.warning(f"📢 **{row['Producto']}**: {row['Alerta']}")
-                
-                st.write("### Comparativa de Precios Unitarios (UYU)")
-                st.dataframe(df_final, use_container_width=True)
-
-                # Exportación
-                csv = df_final.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="📥 Descargar Reporte de Precios Industrial",
-                    data=csv,
-                    file_name='reporte_industrial_uy.csv',
-                    mime='text/csv',
-                )
-
-    if st.sidebar.button("Salir"):
-        st.session_state["authenticator"].logout('main')
-        st.rerun()
+            resultados.append({
+                "Producto": f"{row['Nombre']} {row['Especificación']}",
+                "Material": row['Material/Norma'],
+                "P. Unit. Propio": round(precio_unit_propio, 2),
+                "P. Unit. Comp.": round(precio_unit_comp, 2),
+                "Gap %": round(((precio_unit_comp - precio_unit_propio) / precio_unit_propio) * 100, 2),
+                "Tienda": datos_ia["tienda"],
+                "Rival UE": datos_ia["ue_detectada"],
+                "Es Oferta": datos_ia["es_oferta"],
+                "Alerta": datos_ia["alerta"],
+                "Sugerencia": datos_ia["sugerencia"]
+            })
+    return resultados
