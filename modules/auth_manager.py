@@ -1,17 +1,15 @@
 import streamlit as st
+import os
 
 def gestionar_login():
     if "autenticado" not in st.session_state:
         st.session_state["autenticado"] = False
 
     if not st.session_state["autenticado"]:
-        # CSS para forzar el logo arriba y el texto blanco en el botón
+        # CSS para forzar el botón rojo con texto blanco y logo
         st.markdown("""
             <style>
-            /* Centrar logo */
-            .logo-container { display: flex; justify-content: center; margin-bottom: -20px; }
-            
-            /* FORZAR TEXTO BLANCO */
+            .logo-container { display: flex; justify-content: center; margin-bottom: 20px; }
             div.stButton > button {
                 background-color: #ED1C24 !important;
                 color: white !important;
@@ -19,19 +17,20 @@ def gestionar_login():
                 font-weight: bold !important;
                 width: 100% !important;
             }
-            /* Este es el truco para el texto invisible */
-            div.stButton > button p {
-                color: white !important;
-            }
+            div.stButton > button p { color: white !important; }
             </style>
         """, unsafe_allow_html=True)
         
-        # Logo pre login
-        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
-        st.image("logo_wurth.png", width=120)
-        st.markdown('</div>', unsafe_allow_html=True)
+        # LOGO LOCAL: Cambia 'nombre_de_tu_logo.png' por el nombre real en GitHub
+        nombre_logo = "logo_wurth.png" 
         
-        st.markdown("<h2 style='text-align: center; color: #ED1C24;'>🔒 ACCESO RESTRINGIDO</h2>", unsafe_allow_html=True)
+        st.markdown('<div class="logo-container">', unsafe_allow_html=True)
+        if os.path.exists(nombre_logo):
+            st.image(nombre_logo, width=120)
+        else:
+            # Si el logo falla, usamos el texto para que la pantalla no quede en blanco
+            st.markdown("<h1 style='text-align: center; color: #ED1C24;'>WÜRTH</h1>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
         with st.container():
             col1, col2, col3 = st.columns([1, 2, 1])
