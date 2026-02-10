@@ -18,5 +18,5 @@ def gestionar_login():
         config['cookie']['expiry_days']
     )
 
-    # Agregamos 'Login' como nombre del formulario para evitar errores de procesamiento
-    authenticator.login('Login', 'main')
+    # Corregido: La ubicación ('main') debe ser el primer argumento
+    authenticator.login(location='main')
