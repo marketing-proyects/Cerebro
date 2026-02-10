@@ -18,5 +18,5 @@ def gestionar_login():
         config['cookie']['expiry_days']
     )
 
-    # Corregido: La ubicación ('main') debe ser el primer argumento
+    # Corregido: location debe ser el primer argumento para evitar el ValueError
     authenticator.login(location='main')
