@@ -5,51 +5,47 @@ from modules.ai_engine import procesar_lote_industrial
 
 st.set_page_config(page_title="CEREBRO - WÜRTH", page_icon="🧠", layout="wide")
 
-# Estilos Clean Office
+# Estilos de trabajo (Sin logo en sidebar)
 st.markdown("""
     <style>
     .stApp { background-color: #FFFFFF; color: #333333; }
     h1 { color: #ED1C24 !important; }
     div.stButton > button { background-color: #ED1C24 !important; color: white !important; }
     div.stButton > button p { color: white !important; }
+    /* Estilo para mensajes de error/advertencia */
+    .stAlert { border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# Lógica de validación
 if gestionar_login():
-    # UBICACIÓN RÍGIDA DEL LOGO: Sidebar únicamente
-    st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/b/be/W%C3%BCrth_logo.svg", width=120)
-    st.sidebar.divider()
-    st.sidebar.markdown(f"**Usuario:** {st.session_state.get('username', 'admin')}")
+    # El logo ya no aparece aquí ni en la sidebar
+    st.sidebar.markdown(f"**Usuario Activo:** {st.session_state.get('username', 'admin')}")
     
-    # Cuerpo Principal sin imágenes para evitar el error del "0"
     st.markdown("<h1>🧠 CEREBRO SISTEMA</h1>", unsafe_allow_html=True)
-    st.subheader("Investigación de Mercado Automática")
+    st.subheader("Investigación de Mercado Inteligente (Búsqueda Combinada)")
     st.write("---")
 
-    # Cargador de archivos con soporte .xlsm
-    archivo = st.file_uploader("Subir Inventario (.xlsx, .xlsm)", type=['xlsx', 'xlsm'], key="main_v6")
+    archivo = st.file_uploader("Subir Inventario (.xlsx, .xlsm)", type=['xlsx', 'xlsm'], key="main_final")
     
     if archivo:
-        # dtype=str preserva ceros iniciales; engine='openpyxl' lee archivos con macros
         df = pd.read_excel(archivo, dtype=str, engine='openpyxl')
         
-        # MAPEADO FLEXIBLE: Buscamos tus columnas actuales Nombre/Especificación
+        # Mapeo flexible para asegurar que encuentre los datos
         mapeo = {'Nombre': 'Material', 'Especificación': 'Descripción'}
         df = df.rename(columns=mapeo)
         
-        st.write("### 🔍 Vista Previa de Datos")
+        st.write("### 🔍 Vista Previa de Datos Detectados")
         st.dataframe(df.head(10), use_container_width=True)
         
-        if st.button("INICIAR INVESTIGACIÓN CON IA"):
-            with st.spinner("Investigando competencia..."):
+        if st.button("INICIAR INVESTIGACIÓN ESTRATÉGICA"):
+            with st.spinner("La IA está cruzando códigos y descripciones para encontrar competencia..."):
                 resultados = procesar_lote_industrial(df)
             
             if resultados:
                 st.success("INVESTIGACIÓN FINALIZADA")
                 st.dataframe(pd.DataFrame(resultados), use_container_width=True)
             else:
-                st.warning("No se encontraron resultados. Verifique que los códigos sean válidos.")
+                st.error("⚠️ No se encontraron coincidencias. La IA requiere que la columna 'Descripción' tenga palabras clave claras.")
 
     if st.sidebar.button("CERRAR SESIÓN"):
         st.session_state["autenticado"] = False
