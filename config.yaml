@@ -1,0 +1,10 @@
+credentials:
+  usernames:
+    admin:
+      email: "admin@tuempresa.com"
+      name: "Administrador"
+      password: "xxx"
+cookie:
+  expiry_days: 30
+  key: "llave_secreta_cerebro"
+  name: "cerebro_session"
