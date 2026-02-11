@@ -1,50 +1,38 @@
 import streamlit as st
-import pandas as pd
 from modules.auth_manager import gestionar_login
-from modules.ai_engine import procesar_lote_industrial
 
 st.set_page_config(page_title="CEREBRO - WÜRTH", page_icon="🧠", layout="wide")
 
+# Estilos globales de la plataforma
 st.markdown("""
     <style>
     .stApp { background-color: #FFFFFF; color: #333333; }
     h1 { color: #ED1C24 !important; }
     div.stButton > button { background-color: #ED1C24 !important; color: white !important; }
-    div.stButton > button p { color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# Lógica de Login
 if gestionar_login():
-    # El logo ya no se ve aquí para evitar problemas con el menú lateral
-    st.sidebar.markdown(f"**Usuario:** {st.session_state.get('username', 'admin')}")
+    # Barra lateral de navegación
+    st.sidebar.title("🧠 CEREBRO")
+    st.sidebar.write(f"Usuario: **{st.session_state['username']}**")
+    st.sidebar.divider()
     
-    st.markdown("<h1>🧠 CEREBRO SISTEMA</h1>", unsafe_allow_html=True)
-    st.subheader("Investigación de Mercado Inteligente")
-    st.write("---")
-
-    archivo = st.file_uploader("Subir Inventario (.xlsx, .xlsm)", type=['xlsx', 'xlsm'], key="up_main_clean")
+    # Solo mostramos los módulos que el usuario tiene permitidos
+    opciones = st.session_state.get("permisos", [])
+    modulo = st.sidebar.radio("Navegación:", opciones)
     
-    if archivo:
-        df = pd.read_excel(archivo, dtype=str, engine='openpyxl')
-        
-        # Mapeo de columnas actuales Nombre/Especificación
-        mapeo = {'Nombre': 'Material', 'Especificación': 'Descripción'}
-        df = df.rename(columns=mapeo)
-        
-        st.write("### 🔍 Vista previa de productos detectados")
-        st.dataframe(df.head(10), use_container_width=True)
-        
-        if st.button("BUSCAR COMPETENCIA"):
-            with st.spinner("IA analizando descripciones técnicas..."):
-                resultados = procesar_lote_industrial(df)
-            
-            if resultados:
-                st.success("ANÁLISIS COMPLETADO")
-                st.dataframe(pd.DataFrame(resultados), use_container_width=True)
-            else:
-                st.warning("No se encontraron resultados comerciales para estos términos.")
-
+    st.sidebar.divider()
     if st.sidebar.button("CERRAR SESIÓN"):
         st.session_state["autenticado"] = False
         st.rerun()
+
+    # CARGA DE MÓDULOS INDEPENDIENTES
+    if modulo == "Investigación de Mercado":
+        from modules.market_intel import mostrar_investigacion
+        mostrar_investigacion()
+        
+    elif modulo == "Fijación de Precios":
+        st.markdown("<h1>💰 Fijación de Precios</h1>", unsafe_allow_html=True)
+        st.info("Módulo de Pricing: Aquí integraremos las fórmulas de margen y costos.")
+        # Próximo paso: from modules.pricing import mostrar_fijacion
