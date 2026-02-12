@@ -7,48 +7,57 @@ import re
 import time
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
+    # Limpieza de SKUs para no confundir la búsqueda semántica
     desc_limpia = re.sub(r'\d{5,}', '', str(descripcion)).strip()
     
+    # TU METODOLOGÍA INTEGRADA AL 100%
     prompt = f"""
-    Eres un experto en compras industriales en Uruguay. 
-    Busca un COMPETIDOR local para: "{desc_limpia}"
-    Usa esta referencia: {url_ref}
+    Eres un Investigador Senior de Compras Industriales en Uruguay. Tu misión es encontrar el reemplazo ideal para un producto.
 
-    METODOLOGÍA:
-    1. Busca en dominios .com.uy (Sodimac, Mercado Libre UY, Ingco, etc.).
-    2. Encuentra una marca distinta (Sika, 3M, Fischer, etc.).
-    3. Dame el precio real y el link de la tienda en Uruguay.
+    ARTÍCULO A ANALIZAR: "{desc_limpia}"
+    URL DE REFERENCIA: {url_ref}
 
-    Responde ESTRICTAMENTE en JSON:
+    METODOLOGÍA DE INVESTIGACIÓN OBLIGATORIA:
+    1. IDENTIFICACIÓN TÉCNICA: Analiza la descripción y la URL. Identifica qué es el producto (ej. Adhesivo de polímero MS, Tornillo hexagonal grado 8, etc.). Ignora que la URL sea de Würth España o de otro lugar distinto a Uruguay; úsala solo para extraer especificaciones (medidas, químicos, resistencias).
+    
+    2. BÚSQUEDA DE COMPETENCIA EN URUGUAY: Busca activamente en Google Uruguay, Mercado Libre Uruguay, Sodimac Uruguay, Ingco Uruguay, Salvador Livio Uruguay, Pampin Uruguay, y otros proveedores industriales y no industriales locales.
+    
+    3. SELECCIÓN DE COMPETIDOR: Debes encontrar productos de OTRAS MARCAS (distintas a la marca cargada en el excel inicial) que se vendan actualmente en Uruguay y que sean el reemplazo directo de cada artículo. No acepto como competidor la misma marca del archivo original.
+    
+    4. DATA EXTRACTION: Obtén el precio real de mercado (en UYU o USD), la tienda que lo vende y el link directo a la publicación en Uruguay.
+
+    RESPONDE ESTRICTAMENTE EN ESTE FORMATO JSON:
     {{
-        "comp": "Marca y modelo",
-        "tienda": "Tienda en Uruguay",
+        "comp": "Marca y modelo del competidor",
+        "tienda": "Nombre del comercio o proveedor en Uruguay",
+        "imp": "Importador / Distribuidor local",
         "precio": 0.0,
         "moneda": "USD/UYU",
-        "link": "URL exacta en Uruguay",
-        "vs": "Diferencia técnica"
+        "um": "Presentación (ej. 310ml, Pack x100)",
+        "link": "URL directa de la publicación en Uruguay",
+        "vs": "Análisis de reemplazo: por qué este producto sustituye al original"
     }}
     """
 
-    # --- INTENTO 1: GEMINI (Motor de búsqueda) ---
+    # --- MOTOR 1: GEMINI (Especialista en búsqueda) ---
     if "GOOGLE_API_KEY" in st.secrets:
         try:
             genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-            model = genai.GenerativeModel('gemini-1.5-pro') # Usamos el Pro para mejor calidad
+            model = genai.GenerativeModel('gemini-1.5-pro')
             response = model.generate_content(prompt)
             res_text = response.text
             if "{" in res_text:
                 res_text = res_text[res_text.find("{"):res_text.rfind("}")+1]
                 return json.loads(res_text)
         except:
-            pass # Si falla, pasamos al siguiente motor silenciosamente
+            pass
 
-    # --- INTENTO 2: OPENAI GPT-4o (Motor de razonamiento de respaldo) ---
+    # --- MOTOR 2: OPENAI GPT-4o (Especialista en razonamiento y precisión) ---
     if "OPENAI_API_KEY" in st.secrets:
         try:
             client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
             response_oa = client.chat.completions.create(
-                model="gpt-4o", # Usamos la versión más potente
+                model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
                 response_format={ "type": "json_object" }
             )
@@ -72,31 +81,31 @@ def procesar_lote_industrial(df):
         progreso.progress(pct)
         
         desc_actual = str(row[col_desc])
-        status_text.text(f"🕵️ Multi-IA analizando: {desc_actual[:30]}...")
-        
-        url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
-        
-        # Ejecución Híbrida
-        datos = ejecutar_analisis_ia(desc_actual, url_val)
-        
-        if datos:
-            resultados.append({
-                "Descripción Original": desc_actual,
-                "Competidor": datos.get('comp'),
-                "Tienda": datos.get('tienda'),
-                "Precio": datos.get('precio'),
-                "Moneda": datos.get('moneda'),
-                "Link": datos.get('link'),
-                "Análisis": datos.get('vs')
-            })
-        else:
-            resultados.append({
-                "Descripción Original": desc_actual,
-                "Competidor": "No hallado por ninguna IA",
-                "Tienda": "N/A", "Precio": 0, "Moneda": "N/A", "Link": "N/A", "Análisis": "N/A"
-            })
-        
-        time.sleep(1) # Pequeña pausa para estabilidad
+        if pd.notna(row[col_desc]) and desc_actual.lower() != 'none':
+            status_text.text(f"🕵️ Investigando según metodología: {desc_actual[:35]}...")
+            
+            url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
+            datos = ejecutar_analisis_ia(desc_actual, url_val)
+            
+            if datos:
+                resultados.append({
+                    "Descripción Original": desc_actual,
+                    "Producto Competidor": datos.get('comp'),
+                    "Tienda": datos.get('tienda'),
+                    "Precio": datos.get('precio'),
+                    "Moneda": datos.get('moneda'),
+                    "Presentación": datos.get('um'),
+                    "Link Hallazgo": datos.get('link'),
+                    "Análisis de Reemplazo": datos.get('vs')
+                })
+            else:
+                resultados.append({
+                    "Descripción Original": desc_actual,
+                    "Producto Competidor": "No hallado",
+                    "Tienda": "N/A", "Precio": 0, "Moneda": "N/A", "Presentación": "N/A", "Link Hallazgo": "N/A", "Análisis de Reemplazo": "Sin resultados"
+                })
+            
+            time.sleep(1.5) # Pausa para estabilidad de API
             
     status_text.empty()
     progreso.empty()
