@@ -6,25 +6,24 @@ import pandas as pd
 import re
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
-    # LIMPIEZA AGRESIVA: Eliminamos cualquier código numérico de la descripción
-    # Esto evita que la IA se pierda buscando números de parte de Würth
-    desc_para_ia = re.sub(r'\d+', '', str(descripcion)).strip()
+    # LIMPIEZA: Borramos códigos numéricos largos para que la IA no se pierda
+    desc_limpia = re.sub(r'\d{5,}', '', str(descripcion)).strip()
     
     prompt = f"""
-    Eres un Investigador Senior de Mercado en Uruguay. 
-    Tu objetivo es encontrar un producto COMPETIDOR en Uruguay para: "{desc_para_ia}".
+    Eres un Investigador Forense de Mercados en Uruguay.
+    Tu objetivo es encontrar un producto COMPETIDOR local para: "{desc_limpia}"
 
     DATOS TÉCNICOS:
-    - ADN del producto: {desc_para_ia}
+    - ADN del producto: {desc_limpia}
     - URL de referencia: {url_ref}
 
-    Misión:
-    1. Analiza la URL para entender la composición química o mecánica (ej: es un adhesivo MS, es un disco de corte Inox).
-    2. Busca en el mercado uruguayo (Mercado Libre UY, Sodimac, Ferreterías Industriales).
-    3. Identifica marcas equivalentes: Sika, Fischer, 3M, Loctite, Stanley, Bosch.
-    4. NO respondas "No encontrado". Si no hay precio exacto, busca el de un producto con la misma función en Uruguay.
+    PROTOCOLOS:
+    1. ANALIZA LA URL: Si es de España, entra y entiende la función (ej. es un adhesivo MS).
+    2. BUSCA EN URUGUAY: Usa Mercado Libre UY, Sodimac, Ferreterías Industriales.
+    3. COMPETENCIA: Busca marcas como Sika, Fischer, 3M, Loctite, Stanley en Uruguay.
+    4. NO TE RINDAS: Si no hay precio exacto, busca el del equivalente funcional más cercano.
 
-    Responde en JSON:
+    Responde ESTRICTAMENTE en este formato JSON:
     {{
         "comp": "Marca y modelo competidor",
         "tienda": "Tienda en Uruguay",
@@ -33,12 +32,11 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
         "moneda": "USD/UYU",
         "um": "Presentación",
         "link": "URL del hallazgo",
-        "vs": "Comparativa técnica",
-        "obs": "Notas"
+        "vs": "Comparativa técnica"
     }}
     """
 
-    # --- MOTOR GEMINI (GRATUITO) ---
+    # --- MOTOR GEMINI (PRIORIDAD GRATUITA) ---
     if "GOOGLE_API_KEY" in st.secrets:
         try:
             genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -49,30 +47,35 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
         except:
             pass
 
-    return {{
-        "comp": "Buscando equivalencia...", "tienda": "Google UY", "imp": "N/A", 
-        "precio": 0, "moneda": "N/A", "um": "N/A", "link": "N/A", 
-        "vs": f"Analizando {desc_para_ia}", "obs": "Reintentar"
-    }}
+    # --- FALLBACK SEGURO ---
+    return {
+        "comp": "Buscando...", 
+        "tienda": "Pendiente", 
+        "imp": "N/A", 
+        "precio": 0, 
+        "moneda": "N/A", 
+        "um": "N/A", 
+        "link": "N/A", 
+        "vs": f"Análisis de {desc_limpia}"
+    }
 
 def procesar_lote_industrial(df):
     resultados = []
     status_text = st.empty()
     progreso = st.progress(0)
     
-    # Identificamos columnas ignorando "CODIGO"
+    # Identificamos columnas (ignoramos la columna CODIGO para el filtro)
     col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción'] if c in df.columns), df.columns[1])
     col_url = next((c for c in ['URL (Opcional pero recomendada)', 'URL', 'Link'] if c in df.columns), None)
 
-    # Convertimos a lista para asegurar que procesamos TODAS las filas que tengan descripción
     total = len(df)
     for index, row in df.iterrows():
         pct = (index + 1) / total
         progreso.progress(pct)
         
-        # Validamos que la descripción no esté vacía (ignoramos el código)
         desc_actual = str(row[col_desc])
-        if desc_actual.lower() != 'none' and desc_actual.strip() != '':
+        # Procesamos si la descripción no está vacía, sin importar el CÓDIGO
+        if pd.notna(row[col_desc]) and desc_actual.lower() != 'none' and desc_actual.strip() != '':
             status_text.text(f"🕵️ Investigando {index + 1} de {total}: {desc_actual[:30]}...")
             
             url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
