@@ -6,14 +6,14 @@ import pandas as pd
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
     prompt = f"""
-    Investigador de Mercados. 
-    Misión: encontrar competencia local basada en ADN técnico de los productos cargados para la toma de decisiones y fijación de precios.
+    Eres un Investigador Forense de Mercados para Würth Uruguay. 
+    Tu misión es encontrar competencia local basada en ADN técnico.
 
     PRODUCTO: {descripcion}
     URL REFERENCIA: {url_ref}
 
     INSTRUCCIONES:
-    1. Analiza la URL (incluso si es de España) para entender la química o mecánica. 
+    1. Analiza la URL para entender la química o mecánica. 
     2. Busca equivalentes en Uruguay (Mercado Libre UY, Sodimac, Ferreterías Industriales).
     3. Ignora códigos numéricos; busca por FUNCIÓN técnica.
     
@@ -32,19 +32,22 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
     }}
     """
 
-    # --- INTENTO 1: GEMINI (GRATUITO Y PRIORITARIO) ---
+    # --- PRIORIDAD: GEMINI (GRATUITO) ---
     if "GOOGLE_API_KEY" in st.secrets:
         try:
             genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            # Usamos el modelo 'gemini-1.5-pro' que es el más estable para este tipo de análisis
+            model = genai.GenerativeModel('gemini-1.5-pro')
             response = model.generate_content(prompt)
-            # Limpieza de markdown
+            
+            # Limpieza profesional del JSON retornado
             res_text = response.text.replace('```json', '').replace('```', '').strip()
             return json.loads(res_text)
         except Exception as e:
-            st.error(f"Error con Gemini: {e}")
+            # Si hay un error de cuota o modelo, el sistema intentará con OpenAI silenciosamente
+            pass
 
-    # --- INTENTO 2: OPENAI (SOLO SI TIENE SALDO) ---
+    # --- RESPALDO: OPENAI (COPILOT ENGINE) ---
     if "OPENAI_API_KEY" in st.secrets:
         try:
             client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -62,7 +65,8 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
 def procesar_lote_industrial(df):
     resultados = []
     progreso = st.progress(0)
-    # Detectar columnas
+    
+    # Mapeo flexible de columnas para tu Excel
     col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción', 'Especificación'] if c in df.columns), df.columns[0])
     col_url = next((c for c in ['URL', 'Enlace', 'Link', 'URL (Opcional pero recomendada)'] if c in df.columns), None)
 
@@ -72,14 +76,14 @@ def procesar_lote_industrial(df):
             datos = ejecutar_analisis_ia(row[col_desc], row[col_url] if col_url else None)
             if datos:
                 resultados.append({
-                    "Descripción": row[col_desc],
-                    "Competidor": datos['comp'],
-                    "Tienda": datos['tienda'],
-                    "Importador": datos['imp'],
+                    "Descripción Original": row[col_desc],
+                    "Producto Competidor": datos['comp'],
+                    "Tienda (Venta)": datos['tienda'],
+                    "Importador/Marca": datos['imp'],
                     "Precio": datos['precio'],
                     "Moneda": datos['moneda'],
-                    "U.M": datos['um'],
-                    "Link": datos['link'],
-                    "Análisis": datos['vs']
+                    "Presentación": datos['um'],
+                    "Link Hallazgo": datos['link'],
+                    "Análisis vs Würth": datos['vs']
                 })
     return resultados
