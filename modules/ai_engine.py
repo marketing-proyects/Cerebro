@@ -6,32 +6,39 @@ import pandas as pd
 import re
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
-    # LIMPIEZA: Borramos códigos numéricos largos para que la IA busque por nombre técnico
-    desc_limpia = re.sub(r'\d{5,}', '', str(descripcion)).strip()
+    # 1. LIMPIEZA RADICAL: Eliminamos cualquier código numérico de más de 4 dígitos.
+    # Esto evita que la IA se pierda buscando códigos internos de Würth.
+    desc_para_ia = re.sub(r'\d{5,}', '', str(descripcion)).strip()
     
+    # 2. PROMPT DE INVESTIGACIÓN AGRESIVA
     prompt = f"""
-    Eres un Investigador Forense de Mercados en Uruguay.
-    Tu objetivo es encontrar un producto COMPETIDOR local en Uruguay para: "{desc_limpia}"
+    Eres un Investigador Forense de Mercados para el sector industrial en URUGUAY. 
+    Tu misión es encontrar un producto COMPETIDOR local para: "{desc_para_ia}".
 
-    REGLAS DE ORO:
-    1. ANALIZA LA URL: Entiende la función del producto (ej. es un adhesivo MS, disco de corte, etc.).
-    2. LOCALIZA EN URUGUAY: Busca en Mercado Libre UY, Sodimac o Ferreterías Industriales locales.
-    3. MARCAS EQUIVALENTES: Si no hay Würth, busca Sika, Fischer, 3M, Loctite, Stanley o Bosch.
-    4. NO "PENDIENTES": Provee el precio del producto funcionalmente más cercano en Uruguay.
+    DATOS DISPONIBLES:
+    - ADN del producto: {desc_para_ia}
+    - Referencia técnica (URL): {url_ref}
 
-    Responde ESTRICTAMENTE en este formato JSON:
+    PROTOCOLOS DE BÚSQUEDA:
+    1. PRIORIDAD SEMÁNTICA: Si la descripción menciona "Adhesivo MS", "Silicona", "Disco de Corte" o "Frenos", busca por esa función técnica.
+    2. LOCALIZACIÓN URUGUAY: Busca precios reales en Mercado Libre Uruguay (mercadolibre.com.uy), Sodimac Uruguay o ferreterías industriales locales.
+    3. COMPETIDORES CLAVE: Busca marcas equivalentes presentes en Uruguay: Sika, Fischer, 3M, Loctite, Stanley, Bosch, Thompson.
+    4. PROHIBIDO RENDIRSE: No acepto "No encontrado". Si no hay un link exacto, provee el link de la marca competidora líder en Uruguay que cumpla la misma función.
+    
+    Responde estrictamente en este formato JSON:
     {{
-        "comp": "Marca y modelo competidor",
-        "tienda": "Tienda en Uruguay",
-        "imp": "Marca local",
+        "comp": "Marca y modelo competidor detectado en Uruguay",
+        "tienda": "Nombre del comercio (ej. Sodimac, ML, Ferretería X)",
+        "imp": "Marca o Importador",
         "precio": 0.0,
-        "moneda": "USD/UYU",
-        "um": "Presentación",
-        "link": "URL del hallazgo en Uruguay",
-        "vs": "Breve análisis comparativo"
+        "moneda": "USD o UYU",
+        "um": "Presentación (ej. 310ml, Pack x100)",
+        "link": "URL real del hallazgo en Uruguay",
+        "vs": "Breve comparativa técnica entre Würth y el competidor"
     }}
     """
 
+    # --- MOTOR PRIMARIO: GEMINI 1.5 PRO (Búsqueda en Uruguay) ---
     if "GOOGLE_API_KEY" in st.secrets:
         try:
             genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -42,10 +49,24 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
         except:
             pass
 
+    # --- MOTOR DE RESPALDO: OPENAI (GPT-4o) ---
+    if "OPENAI_API_KEY" in st.secrets:
+        try:
+            client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+            response_oa = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": prompt}],
+                response_format={ "type": "json_object" }
+            )
+            return json.loads(response_oa.choices[0].message.content)
+        except:
+            pass
+    
+    # FALLBACK: Si no hay conexión, devolvemos un estado informativo
     return {
-        "comp": "Buscando...", "tienda": "Pendiente", "imp": "N/A", 
+        "comp": "Error de conexión IA", "tienda": "N/A", "imp": "N/A", 
         "precio": 0, "moneda": "N/A", "um": "N/A", "link": "N/A", 
-        "vs": f"Analizando equivalencia para {desc_limpia}"
+        "vs": f"Fallo al analizar {desc_para_ia}"
     }
 
 def procesar_lote_industrial(df):
@@ -53,7 +74,8 @@ def procesar_lote_industrial(df):
     status_text = st.empty()
     progreso = st.progress(0)
     
-    col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción'] if c in df.columns), df.columns[1])
+    # Identificación flexible de columnas
+    col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción'] if c in df.columns), df.columns[0])
     col_url = next((c for c in ['URL (Opcional pero recomendada)', 'URL', 'Link'] if c in df.columns), None)
 
     total = len(df)
@@ -62,8 +84,9 @@ def procesar_lote_industrial(df):
         progreso.progress(pct)
         
         desc_actual = str(row[col_desc])
-        if pd.notna(row[col_desc]) and desc_actual.lower() != 'none':
+        if pd.notna(row[col_desc]) and desc_actual.lower() != 'none' and desc_actual.strip() != '':
             status_text.text(f"🕵️ Investigando {index + 1} de {total}: {desc_actual[:30]}...")
+            
             url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
             datos = ejecutar_analisis_ia(desc_actual, url_val)
             
@@ -71,8 +94,10 @@ def procesar_lote_industrial(df):
                 "Descripción Original": desc_actual,
                 "Producto Competidor": datos.get('comp'),
                 "Tienda (Venta)": datos.get('tienda'),
+                "Importador/Marca": datos.get('imp'),
                 "Precio": datos.get('precio'),
                 "Moneda": datos.get('moneda'),
+                "Presentación": datos.get('um'),
                 "Link Hallazgo": datos.get('link'),
                 "Análisis vs Würth": datos.get('vs')
             })
