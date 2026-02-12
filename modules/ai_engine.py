@@ -7,34 +7,41 @@ def ejecutar_analisis_ia(sku, descripcion, url_ref=None):
     client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
     
     prompt = f"""
-    Eres un experto en Business Intelligence industrial en Uruguay.
-    Producto Würth de referencia: {descripcion} (SKU: {sku})
-    URL Técnica: {url_ref}
+    Eres un Investigador de Mercado Industrial en Uruguay. 
+    Tu objetivo es encontrar competidores LOCALES para un producto de referencia.
 
-    TAREA:
-    1. Si la URL es de otro país, analiza las propiedades técnicas del producto.
-    2. Busca en Uruguay (Mercado Libre, Sodimac, Ferreterías Industriales) el equivalente comercial.
-    3. Separa TIENDA de IMPORTADOR/MARCA.
-    
-    Responde en JSON con este formato exacto:
+    DATOS DE REFERENCIA (Würth):
+    - Descripción corta: {descripcion}
+    - SKU interno (solo referencia): {sku}
+    - URL de referencia técnica: {url_ref}
+
+    PASOS DE TU INVESTIGACIÓN:
+    1. ANALIZA LA URL: Si hay una URL (aunque sea de España o Alemania), entra y extrae: composición técnica (ej. Polímero MS, Cianocrilato), uso (ej. pegado de espejos, limpieza de frenos) y beneficios.
+    2. BUSCA EN URUGUAY: Con ese perfil técnico, busca productos equivalentes en: Mercado Libre Uruguay, Sodimac.com.uy, y ferreterías industriales uruguayas.
+    3. IDENTIFICA: Marca del competidor, quién lo importa/fabrica y quién lo vende (tienda).
+
+    REGLA: No busques el código {sku}. Busca productos que CUMPLAN LA MISMA FUNCIÓN técnica en Uruguay.
+
+    Responde en JSON:
     {{
-        "comp": "Nombre producto competencia",
-        "tienda": "Tienda en Uruguay",
-        "imp": "Importador o Marca",
+        "comp": "Nombre del producto competidor",
+        "tienda": "Comercio donde se vende en Uruguay",
+        "imp": "Marca o Importador detectado",
         "precio": 0.0,
         "moneda": "USD/UYU",
-        "um": "Presentación (ej: 310ml)",
-        "link": "Link competencia",
-        "rank": "Puntaje/Opiniones",
-        "vs": "Würth vs Comp",
-        "obs": "Promociones o notas"
+        "um": "Presentación (ml, gr, kg)",
+        "link": "URL del producto en Uruguay",
+        "rank": "Opiniones/Ranking",
+        "vs": "Comparativa técnica rápida con Würth",
+        "obs": "Notas, promos o info de stock"
     }}
     """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o", 
             messages=[{"role": "user", "content": prompt}],
-            response_format={ "type": "json_object" }
+            response_format={ "type": "json_object" },
+            temperature=0.3
         )
         data = json.loads(response.choices[0].message.content)
         data['sku'] = sku
@@ -47,9 +54,10 @@ def procesar_lote_industrial(df):
     resultados = []
     progreso = st.progress(0)
     
-    col_sku = 'Material' if 'Material' in df.columns else df.columns[0]
-    col_desc = 'Descripción' if 'Descripción' in df.columns else df.columns[1]
-    col_url = 'URL' if 'URL' in df.columns else (df.columns[2] if len(df.columns) > 2 else None)
+    # Mapeo de columnas
+    col_sku = next((c for c in ['Material', 'CODIGO', 'Código'] if c in df.columns), df.columns[0])
+    col_desc = next((c for c in ['Descripción', 'DESCRIPCION CORTA', 'Especificación'] if c in df.columns), df.columns[1])
+    col_url = next((c for c in ['URL', 'Enlace', 'Link'] if c in df.columns), None)
 
     for index, row in df.iterrows():
         progreso.progress((index + 1) / len(df))
@@ -62,7 +70,7 @@ def procesar_lote_industrial(df):
                     "Producto Competidor": datos['comp'],
                     "Tienda (Venta)": datos['tienda'],
                     "Importador/Marca": datos['imp'],
-                    "Precio": datos['precio'],
+                    "Precio Mercado": datos['precio'],
                     "Moneda": datos['moneda'],
                     "Presentación": datos['um'],
                     "Link": datos['link'],
