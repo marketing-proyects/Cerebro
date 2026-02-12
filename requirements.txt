@@ -1,8 +1,6 @@
 streamlit
-streamlit-authenticator
-pyyaml
 pandas
 openpyxl
-requests
-beautifulsoup4
+xlsxwriter
 openai
+requests
