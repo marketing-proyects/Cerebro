@@ -1,9 +1,10 @@
+from google import genai
+from google.genai import types
+from groq import Groq
 import streamlit as st
 import json
 import re
 import time
-import google.generativeai as genai
-from groq import Groq
 import requests
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
@@ -11,13 +12,14 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
     
     prompt = f"""
     Eres un Investigador Senior de Compras Industriales en Uruguay.
-    Misión: Encontrar un reemplazo de OTRA MARCA para: "{desc_limpia}" en Uruguay.
-    Referencia: {url_ref}
+    ARTÍCULO: "{desc_limpia}"
+    URL REFERENCIA: {url_ref}
 
     METODOLOGÍA:
-    1. Identifica el producto.
-    2. Busca en: mercadolibre.com.uy, sodimac.com.uy, ingco.com.uy, salvadorlivio.com.uy, pampin.com.uy.
-    3. Dame el precio real y link de Uruguay.
+    1. IDENTIFICACIÓN TÉCNICA: Usa la descripción y URL para entender medidas y función.
+    2. BÚSQUEDA URUGUAY: Busca en Google Uruguay resultados de Sodimac, Mercado Libre UY, Ingco, Salvador Livio o Pampin.
+    3. SELECCIÓN: Encuentra una marca de reemplazo (Sika, 3M, Fischer, Bosch, Ingco) disponible en Uruguay.
+    4. DATA EXTRACTION: Obtén precio real, tienda y link directo.
 
     Responde ESTRICTAMENTE en JSON:
     {{
@@ -25,48 +27,44 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
         "tienda": "Tienda en Uruguay",
         "precio": 0.0,
         "moneda": "USD/UYU",
-        "link": "URL exacta",
-        "vs": "Análisis"
+        "um": "Presentación",
+        "link": "URL en Uruguay",
+        "vs": "Análisis de reemplazo"
     }}
     """
 
-    # --- 1. MOTOR PRINCIPAL: GROQ (Ultra Rápido) ---
+    # --- 1. MOTOR PRINCIPAL: GEMINI (Tu cuenta personal con nueva librería) ---
+    if "GOOGLE_API_KEY" in st.secrets:
+        try:
+            client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
+            # Usamos búsqueda de Google activa
+            search_tool = types.Tool(google_search=types.GoogleSearch())
+            
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(tools=[search_tool])
+            )
+            
+            res_text = response.text
+            if "{" in res_text:
+                res_text = res_text[res_text.find("{"):res_text.rfind("}")+1]
+                return json.loads(res_text)
+        except Exception as e:
+            st.warning(f"Gemini en espera, saltando a respaldo...")
+
+    # --- 2. RESPALDO: GROQ (Llama 3) ---
     if "GROQ_API_KEY" in st.secrets:
         try:
-            client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-            completion = client.chat.completions.create(
+            client_groq = Groq(api_key=st.secrets["GROQ_API_KEY"])
+            completion = client_groq.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"}
             )
             return json.loads(completion.choices[0].message.content)
-        except Exception as e:
-            st.warning(f"Groq en espera... reintentando")
-
-    # --- 2. RESPALDO: HUGGING FACE (Mistral) ---
-    if "HF_TOKEN" in st.secrets:
-        try:
-            API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
-            headers = {"Authorization": f"Bearer {st.secrets['HF_TOKEN']}"}
-            response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
-            res_text = response.json()[0]['generated_text']
-            # Extraer JSON del texto
-            json_match = re.search(r'\{.*\}', res_text, re.DOTALL)
-            if json_match:
-                return json.loads(json_match.group())
-        except: pass
-
-    # --- 3. BACKUP FINAL: GEMINI (Tu cuenta personal) ---
-    if "GOOGLE_API_KEY" in st.secrets:
-        try:
-            genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            response = model.generate_content(prompt)
-            res_text = response.text
-            json_match = re.search(r'\{.*\}', res_text, re.DOTALL)
-            if json_match:
-                return json.loads(json_match.group())
-        except: pass
+        except:
+            pass
 
     return None
 
@@ -97,14 +95,14 @@ def procesar_lote_industrial(df):
                 "Precio": datos.get('precio'),
                 "Moneda": datos.get('moneda'),
                 "Link Hallazgo": datos.get('link'),
-                "Análisis": datos.get('vs')
+                "Análisis de Reemplazo": datos.get('vs')
             })
         else:
             resultados.append({
                 "Descripción Original": desc_actual,
-                "Producto Competidor": "Sin resultados", "Tienda": "N/A", "Precio": 0, "Moneda": "N/A", "Link Hallazgo": "N/A", "Análisis": "Error en motores"
+                "Producto Competidor": "Sin resultados", "Tienda": "N/A", "Precio": 0, "Moneda": "N/A", "Link Hallazgo": "N/A", "Análisis de Reemplazo": "Error en investigación"
             })
-        time.sleep(1) # Pausa mínima para no saturar
+        time.sleep(1) # Fluidez
             
     status_text.empty()
     progreso.empty()
