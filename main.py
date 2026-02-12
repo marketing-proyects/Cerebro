@@ -24,7 +24,6 @@ if gestionar_login():
         st.session_state["autenticado"] = False
         st.rerun()
 
-    # Bloque de carga de módulos (Corregido)
     if seleccion == "Investigación de Mercado":
         from modules.market_intel import mostrar_investigacion
         mostrar_investigacion()
