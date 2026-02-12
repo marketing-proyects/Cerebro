@@ -6,8 +6,8 @@ import pandas as pd
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
     prompt = f"""
-    Eres un Investigador Forense de Mercados para Würth Uruguay. 
-    Tu misión es encontrar competencia local basada en ADN técnico.
+    Objetivo: Investigador experto de Mercados para la competencia de los articulos subidos mediante excel. 
+    Misión: encontrar competencia local en Uruguay basada en ADN técnico.
 
     PRODUCTO: {descripcion}
     URL REFERENCIA: {url_ref}
