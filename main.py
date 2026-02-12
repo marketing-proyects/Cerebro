@@ -8,7 +8,6 @@ st.markdown("""
     .stApp { background-color: #FFFFFF; color: #333333; }
     h1 { color: #ED1C24 !important; }
     div.stButton > button { background-color: #ED1C24 !important; color: white !important; }
-    .block-container { padding-top: 2rem; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -17,18 +16,18 @@ if gestionar_login():
     st.sidebar.write(f"Usuario: **{st.session_state.get('username', 'admin')}**")
     st.sidebar.divider()
     
-    modulos_permitidos = st.session_state.get("permisos", ["Investigación de Mercado"])
-    seleccion = st.sidebar.radio("Navegación:", modulos_permitidos)
+    modulos = st.session_state.get("permisos", ["Investigación de Mercado"])
+    seleccion = st.sidebar.radio("Navegación:", modulos)
     
     st.sidebar.divider()
     if st.sidebar.button("CERRAR SESIÓN"):
         st.session_state["autenticado"] = False
         st.rerun()
 
+    # Bloque de carga de módulos (Corregido)
     if seleccion == "Investigación de Mercado":
         from modules.market_intel import mostrar_investigacion
         mostrar_investigacion()
-        
     elif seleccion == "Fijación de Precios":
         st.markdown("<h1>💰 Fijación de Precios</h1>", unsafe_allow_html=True)
-        st.info("Módulo configurado para recepción de datos de Pricing.")
+        st.info("Módulo listo para recibir lógica de márgenes.")
