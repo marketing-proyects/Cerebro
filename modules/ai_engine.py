@@ -7,10 +7,10 @@ import re
 import time
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
-    # Limpieza de SKUs para no confundir la búsqueda semántica
+    # Limpieza de SKUs para no confundir la búsqueda técnica
     desc_limpia = re.sub(r'\d{5,}', '', str(descripcion)).strip()
     
-    # TU METODOLOGÍA INTEGRADA AL 100%
+    # TU METODOLOGÍA DE INVESTIGACIÓN AL 100%
     prompt = f"""
     Eres un Investigador Senior de Compras Industriales en Uruguay. Tu misión es encontrar el reemplazo ideal para un producto.
 
@@ -18,7 +18,7 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
     URL DE REFERENCIA: {url_ref}
 
     METODOLOGÍA DE INVESTIGACIÓN OBLIGATORIA:
-    1. IDENTIFICACIÓN TÉCNICA: Analiza la descripción y la URL. Identifica qué es el producto (ej. Adhesivo de polímero MS, Tornillo hexagonal grado 8, etc.). Ignora que la URL sea de Würth España o de otro lugar distinto a Uruguay; úsala solo para extraer especificaciones (medidas, químicos, resistencias).
+    1. IDENTIFICACIÓN TÉCNICA: Analiza la descripción y la URL. Identifica qué es el producto (ej. Adhesivo de polímero MS, Tornillo hexagonal grado 8, etc.). Ignora que la URL sea de una marca específica o de otro lugar distinto a Uruguay; úsala solo para extraer especificaciones (medidas, químicos, resistencias).
     
     2. BÚSQUEDA DE COMPETENCIA EN URUGUAY: Busca activamente en Google Uruguay, Mercado Libre Uruguay, Sodimac Uruguay, Ingco Uruguay, Salvador Livio Uruguay, Pampin Uruguay, y otros proveedores industriales y no industriales locales.
     
@@ -39,7 +39,7 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
     }}
     """
 
-    # --- MOTOR 1: GEMINI (Especialista en búsqueda) ---
+    # --- MOTOR 1: GEMINI (Especialista en Búsqueda) ---
     if "GOOGLE_API_KEY" in st.secrets:
         try:
             genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -52,7 +52,7 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
         except:
             pass
 
-    # --- MOTOR 2: OPENAI GPT-4o (Especialista en razonamiento y precisión) ---
+    # --- MOTOR 2: OPENAI GPT-4o (Especialista en Precisión) ---
     if "OPENAI_API_KEY" in st.secrets:
         try:
             client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -82,9 +82,11 @@ def procesar_lote_industrial(df):
         
         desc_actual = str(row[col_desc])
         if pd.notna(row[col_desc]) and desc_actual.lower() != 'none':
-            status_text.text(f"🕵️ Investigando según metodología: {desc_actual[:35]}...")
+            status_text.text(f"🕵️ Investigando en Uruguay: {desc_actual[:35]}...")
             
             url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
+            
+            # Ejecución Multi-IA
             datos = ejecutar_analisis_ia(desc_actual, url_val)
             
             if datos:
@@ -94,7 +96,6 @@ def procesar_lote_industrial(df):
                     "Tienda": datos.get('tienda'),
                     "Precio": datos.get('precio'),
                     "Moneda": datos.get('moneda'),
-                    "Presentación": datos.get('um'),
                     "Link Hallazgo": datos.get('link'),
                     "Análisis de Reemplazo": datos.get('vs')
                 })
@@ -102,10 +103,11 @@ def procesar_lote_industrial(df):
                 resultados.append({
                     "Descripción Original": desc_actual,
                     "Producto Competidor": "No hallado",
-                    "Tienda": "N/A", "Precio": 0, "Moneda": "N/A", "Presentación": "N/A", "Link Hallazgo": "N/A", "Análisis de Reemplazo": "Sin resultados"
+                    "Tienda": "N/A", "Precio": 0, "Moneda": "N/A", "Link Hallazgo": "N/A", "Análisis de Reemplazo": "Sin resultados tras búsqueda Multi-IA"
                 })
             
-            time.sleep(1.5) # Pausa para estabilidad de API
+            # Pausa de seguridad para evitar errores de cuota (Rate Limit)
+            time.sleep(2)
             
     status_text.empty()
     progreso.empty()
