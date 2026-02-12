@@ -9,9 +9,12 @@ def mostrar_investigacion():
     
     archivo = st.file_uploader("Subir Inventario para analizar", type=['xlsx', 'xlsm'], key="multi_ia_up")
     
-    if archivo:
+   if archivo:
         df = pd.read_excel(archivo, dtype=str, engine='openpyxl')
-        st.dataframe(df.head(5), use_container_width=True)
+        st.write(f"### 🔍 Datos detectados ({len(df)} artículos)")
+        
+        # Height para habilitar scroll y ver toda la lista
+        st.dataframe(df, use_container_width=True, height=400)
         
         if st.button("INICIAR BÚSQUEDA MULTI-IA"):
             with st.spinner("🕵️ Triangulando información en el mercado uruguayo..."):
