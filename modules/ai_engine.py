@@ -36,18 +36,19 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
     if "GOOGLE_API_KEY" in st.secrets:
         try:
             genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-            # Usamos el modelo 'gemini-1.5-pro' que es el más estable para este tipo de análisis
+            # Ajuste crítico: Usamos gemini-1.5-pro para evitar el error 404
             model = genai.GenerativeModel('gemini-1.5-pro')
             response = model.generate_content(prompt)
             
-            # Limpieza profesional del JSON retornado
+            # Limpieza del JSON
             res_text = response.text.replace('```json', '').replace('```', '').strip()
             return json.loads(res_text)
         except Exception as e:
-            # Si hay un error de cuota o modelo, el sistema intentará con OpenAI silenciosamente
+            # Mostramos un aviso discreto si falla para saber qué pasa
+            st.toast(f"Falla técnica en motor primario. Intentando respaldo...", icon="⚠️")
             pass
 
-    # --- RESPALDO: OPENAI (COPILOT ENGINE) ---
+    # --- RESPALDO: OPENAI ---
     if "OPENAI_API_KEY" in st.secrets:
         try:
             client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -64,26 +65,30 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
 
 def procesar_lote_industrial(df):
     resultados = []
-    progreso = st.progress(0)
+    # Barra de progreso para dar feedback visual
+    progreso = st.progress(0, text="Iniciando análisis profundo...")
     
-    # Mapeo flexible de columnas para tu Excel
     col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción', 'Especificación'] if c in df.columns), df.columns[0])
     col_url = next((c for c in ['URL', 'Enlace', 'Link', 'URL (Opcional pero recomendada)'] if c in df.columns), None)
 
+    total = len(df)
     for index, row in df.iterrows():
-        progreso.progress((index + 1) / len(df))
+        # Actualizar texto de progreso para saber por qué fila va
+        progreso.progress((index + 1) / total, text=f"Analizando producto {index + 1} de {total}: {row[col_desc][:30]}...")
+        
         if pd.notna(row[col_desc]):
-            datos = ejecutar_analisis_ia(row[col_desc], row[col_url] if col_url else None)
+            url_val = row[col_url] if col_url else None
+            datos = ejecutar_analisis_ia(row[col_desc], url_val)
             if datos:
                 resultados.append({
                     "Descripción Original": row[col_desc],
-                    "Producto Competidor": datos['comp'],
-                    "Tienda (Venta)": datos['tienda'],
-                    "Importador/Marca": datos['imp'],
-                    "Precio": datos['precio'],
-                    "Moneda": datos['moneda'],
-                    "Presentación": datos['um'],
-                    "Link Hallazgo": datos['link'],
-                    "Análisis vs Würth": datos['vs']
+                    "Producto Competidor": datos.get('comp', 'N/A'),
+                    "Tienda (Venta)": datos.get('tienda', 'N/A'),
+                    "Importador/Marca": datos.get('imp', 'N/A'),
+                    "Precio": datos.get('precio', 0),
+                    "Moneda": datos.get('moneda', 'N/A'),
+                    "Presentación": datos.get('um', 'N/A'),
+                    "Link Hallazgo": datos.get('link', 'N/A'),
+                    "Análisis vs Würth": datos.get('vs', 'N/A')
                 })
     return resultados
