@@ -7,13 +7,13 @@ def mostrar_investigacion():
     st.markdown("<h1>📊 Investigación de Mercado</h1>", unsafe_allow_html=True)
     st.write("Análisis profundo basado en ADN técnico de URLs.")
     
-    archivo = st.file_uploader("Subir Inventario (.xlsx, .xlsm)", type=['xlsx', 'xlsm'], key="invest_v3")
+    archivo = st.file_uploader("Subir Inventario (.xlsx, .xlsm)", type=['xlsx', 'xlsm'], key="invest_v4")
     
     if archivo:
         df = pd.read_excel(archivo, dtype=str, engine='openpyxl')
         st.write(f"### 🔍 Vista previa de carga ({len(df)} artículos detectados)")
         
-        # Habilitamos el scroll con height=400 para ver toda la lista
+        # Tabla con scroll para ver todos los artículos
         st.dataframe(df, use_container_width=True, height=400)
         
         if st.button("INICIAR INVESTIGACIÓN ESTRATÉGICA"):
