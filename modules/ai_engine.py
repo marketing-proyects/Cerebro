@@ -1,4 +1,4 @@
-import google.generativeai as genai
+from genai import Client
 import openai
 import streamlit as st
 import json
@@ -6,64 +6,62 @@ import pandas as pd
 import re
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
-    # LIMPIEZA: Quitamos códigos de Würth para que no "ensucien" la búsqueda en Google UY
+    # LIMPIEZA: Quitamos códigos de Würth para que la IA busque el concepto técnico
     desc_limpia = re.sub(r'\d{5,}', '', str(descripcion)).strip()
     
+    # PROMPT DE INVESTIGACIÓN AGRESIVA
     prompt = f"""
-    ERES UN INVESTIGADOR DE MERCADO TÉCNICO EN URUGUAY.
+    ERES UN INVESTIGADOR DE MERCADO INDUSTRIAL EN URUGUAY.
     
-    PRODUCTO OBJETIVO: "{desc_limpia}"
-    URL DE REFERENCIA (ESPECIFICACIONES): {url_ref}
+    PRODUCTO A ANALIZAR: "{desc_limpia}"
+    URL DE REFERENCIA TÉCNICA: {url_ref}
 
     METODOLOGÍA OBLIGATORIA:
-    1. IDENTIFICACIÓN TÉCNICA: Analiza la descripción y la URL. Determina qué es el producto (ej. Adhesivo MS, Disco de corte 115mm, Guante nitrilo). Usa la URL solo para entender la calidad y normas.
+    1. IDENTIFICACIÓN TÉCNICA: Analiza la descripción y la URL. Identifica qué es el producto (ej. Adhesivo MS, Disco de corte, etc.). Ignora que la URL sea extranjera; úsala solo para extraer especificaciones técnicas.
     
-    2. BÚSQUEDA AGRESIVA EN URUGUAY: Busca en Google Uruguay, Mercado Libre Uruguay, Sodimac, Ingco, Salvador Livio, Pampín y otros proveedores locales.
+    2. BÚSQUEDA REAL EN URUGUAY: Busca activamente en Google Uruguay, Mercado Libre Uruguay, Sodimac, Ingco, Salvador Livio, Pampín y otros proveedores locales.
     
-    3. SELECCIÓN DE COMPETIDOR: Debes encontrar un reemplazo directo de OTRA MARCA (Sika, Fischer, 3M, Stanley, etc.) disponible actualmente en Uruguay.
+    3. SELECCIÓN DE COMPETIDOR: Debes encontrar productos de OTRAS MARCAS (Sika, Fischer, 3M, Stanley, etc.) que se vendan en Uruguay y sean el reemplazo directo.
     
-    4. EXTRACCIÓN DE DATOS: Necesito el precio real, la tienda y el link.
+    4. RESPUESTA OBLIGATORIA: No acepto campos vacíos. Si no encuentras el link exacto, provee el link de la marca líder competidora en Uruguay.
 
-    RESPONDE EXCLUSIVAMENTE EN ESTE FORMATO JSON:
+    RESPONDE EXCLUSIVAMENTE EN JSON:
     {{
-        "comp": "Marca y modelo del competidor",
+        "comp": "Marca y modelo competidor",
         "tienda": "Comercio en Uruguay",
-        "imp": "Importador local",
+        "imp": "Importador/Marca",
         "precio": 0.0,
         "moneda": "USD/UYU",
-        "um": "Presentación (ej. 310ml)",
+        "um": "Presentación",
         "link": "URL del hallazgo en Uruguay",
-        "vs": "Análisis de por qué es el reemplazo ideal"
+        "vs": "Análisis de reemplazo"
     }}
     """
 
-    # --- MOTOR PRINCIPAL: GEMINI 1.5 PRO ---
+    # --- NUEVA LIBRERÍA GOOGLE GENAI ---
     if "GOOGLE_API_KEY" in st.secrets:
         try:
-            genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-            # Usamos el modelo Pro que tiene mejores capacidades de búsqueda y razonamiento
-            model = genai.GenerativeModel('gemini-1.5-pro')
+            client_google = Client(api_key=st.secrets["GOOGLE_API_KEY"])
+            # Usamos el modelo con capacidad de búsqueda (Search Tool)
+            response = client_google.models.generate_content(
+                model="gemini-2.0-flash", 
+                contents=prompt
+            )
             
-            # Forzamos la generación con una configuración que evite respuestas vacías
-            response = model.generate_content(prompt)
-            
-            # Limpieza del resultado para asegurar JSON puro
-            res_text = response.text.strip()
+            res_text = response.text
+            # Limpiamos el JSON por si la IA pone basura alrededor
             if "```json" in res_text:
                 res_text = res_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in res_text:
-                res_text = res_text.split("```")[1].split("```")[0].strip()
-                
             return json.loads(res_text)
         except Exception as e:
-            # Si Gemini falla, intentamos con OpenAI de respaldo
+            # Si falla Google, intentamos con OpenAI
             pass
 
-    # --- MOTOR DE RESPALDO: OPENAI ---
+    # --- RESPALDO: OPENAI ---
     if "OPENAI_API_KEY" in st.secrets:
         try:
-            client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-            response_oa = client.chat.completions.create(
+            client_oa = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+            response_oa = client_oa.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
                 response_format={ "type": "json_object" }
@@ -72,16 +70,9 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
         except:
             pass
 
-    # FALLBACK: Si ambos fallan, devolvemos una fila que indique el error técnico
     return {
-        "comp": "Error de investigación",
-        "tienda": "N/A",
-        "imp": "N/A",
-        "precio": 0,
-        "moneda": "N/A",
-        "um": "N/A",
-        "link": "N/A",
-        "vs": "No se pudo conectar con los motores de búsqueda."
+        "comp": "Error de investigación", "tienda": "N/A", "imp": "N/A", 
+        "precio": 0, "moneda": "N/A", "um": "N/A", "link": "N/A", "vs": "Revisar conexión"
     }
 
 def procesar_lote_industrial(df):
@@ -89,7 +80,6 @@ def procesar_lote_industrial(df):
     status_text = st.empty()
     progreso = st.progress(0)
     
-    # Identificación de columnas flexible
     col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción'] if c in df.columns), df.columns[0])
     col_url = next((c for c in ['URL (Opcional pero recomendada)', 'URL', 'Link'] if c in df.columns), None)
 
@@ -100,8 +90,7 @@ def procesar_lote_industrial(df):
         
         desc_actual = str(row[col_desc])
         if pd.notna(row[col_desc]) and desc_actual.lower() != 'none':
-            status_text.text(f"🕵️ Investigando {index + 1} de {total}: {desc_actual[:35]}...")
-            
+            status_text.text(f"🕵️ Investigando en Uruguay: {desc_actual[:35]}...")
             url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
             datos = ejecutar_analisis_ia(desc_actual, url_val)
             
@@ -113,7 +102,7 @@ def procesar_lote_industrial(df):
                 "Moneda": datos.get('moneda'),
                 "Presentación": datos.get('um'),
                 "Link Hallazgo": datos.get('link'),
-                "Análisis Estratégico": datos.get('vs')
+                "Análisis de Reemplazo": datos.get('vs')
             })
     
     status_text.empty()
