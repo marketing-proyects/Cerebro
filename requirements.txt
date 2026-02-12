@@ -1,5 +1,7 @@
-google-generativeai
-openai
+streamlit==1.42.0
+altair==4.2.2
 pandas
-streamlit
+openpyxl
 xlsxwriter
+openai
+google-generativeai
