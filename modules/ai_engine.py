@@ -1,5 +1,4 @@
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 import openai
 import streamlit as st
 import json
@@ -8,62 +7,52 @@ import re
 import time
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
-    # Limpieza: Borramos códigos de Würth
+    # Limpiamos los códigos de Würth para que no ensucien la búsqueda
     desc_limpia = re.sub(r'\d{5,}', '', str(descripcion)).strip()
     
     prompt = f"""
-    ERES UN INVESTIGADOR DE MERCADO INDUSTRIAL EN URUGUAY.
-    PRODUCTO: "{desc_limpia}"
-    REF TÉCNICA: {url_ref}
+    Eres un experto en compras industriales en Uruguay. 
+    Tu objetivo es encontrar el precio de un COMPETIDOR para: "{desc_limpia}"
+    Usa esta referencia técnica para entender el producto: {url_ref}
 
-    METODOLOGÍA:
-    1. Identifica qué es el producto técnicamente.
-    2. BUSCA EN URUGUAY: Mercado Libre UY, Sodimac, Ingco, Salvador Livio o Pampín.
-    3. COMPETENCIA: Busca marcas como Sika, Fischer, 3M, Stanley o Bosch.
-    
-    Responde estrictamente en JSON:
+    INSTRUCCIONES DE BÚSQUEDA DIRIGIDA:
+    1. Busca el producto exclusivamente en dominios de URUGUAY (.com.uy).
+    2. Prioriza resultados de estos sitios específicos:
+       - mercadolibre.com.uy
+       - sodimac.com.uy
+       - ingco.com.uy
+       - salvadorlivio.com.uy
+       - pampin.com.uy
+    3. Busca marcas competidoras líderes: Sika, Fischer, 3M, Stanley, Bosch o Ingco.
+    4. Provee el precio actual y el link directo del hallazgo.
+
+    Responde ESTRICTAMENTE en este formato JSON:
     {{
         "comp": "Marca y modelo competidor",
-        "tienda": "Tienda en Uruguay",
-        "imp": "Marca/Importador",
+        "tienda": "Nombre del comercio en Uruguay",
         "precio": 0.0,
         "moneda": "USD/UYU",
-        "um": "Presentación",
-        "link": "URL del hallazgo en Uruguay",
-        "vs": "Análisis de reemplazo"
+        "um": "Presentación (ej. 310ml)",
+        "link": "URL exacta del producto en Uruguay",
+        "vs": "Comparativa técnica rápida"
     }}
     """
 
+    # --- VOLVEMOS AL MOTOR ESTABLE (genai original) ---
     if "GOOGLE_API_KEY" in st.secrets:
-        # Intentamos hasta 2 veces si hay error de cuota
-        for intento in range(2):
-            try:
-                client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
-                google_search_tool = types.Tool(google_search=types.GoogleSearch())
-                
-                # Usamos 1.5 Flash que es más estable para cuotas gratuitas
-                response = client.models.generate_content(
-                    model="gemini-1.5-flash",
-                    contents=prompt,
-                    config=types.GenerateContentConfig(tools=[google_search_tool])
-                )
-                
-                res_text = response.text
-                if "```json" in res_text:
-                    res_text = res_text.split("```json")[1].split("```")[0].strip()
-                return json.loads(res_text)
+        try:
+            genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+            # Usamos 1.5-flash que es el más estable y rara vez da error de cuota
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            response = model.generate_content(prompt)
             
-            except Exception as e:
-                if "429" in str(e):
-                    time.sleep(10) # Esperamos 10 segundos si la cuota se agota
-                    continue
-                st.error(f"Error técnico: {e}")
-                break
+            res_text = response.text.replace('```json', '').replace('```', '').strip()
+            return json.loads(res_text)
+        except Exception as e:
+            # Si hay un error, devolvemos una estructura vacía pero segura
+            return None
 
-    return {
-        "comp": "Cuota excedida", "tienda": "Reintentar en 1 min", "imp": "N/A", 
-        "precio": 0, "moneda": "N/A", "um": "N/A", "link": "N/A", "vs": "Google API Limit"
-    }
+    return None
 
 def procesar_lote_industrial(df):
     resultados = []
@@ -80,23 +69,27 @@ def procesar_lote_industrial(df):
         
         desc_actual = str(row[col_desc])
         if pd.notna(row[col_desc]) and desc_actual.lower() != 'none':
-            status_text.text(f"🕵️ Investigando {index + 1} de {total}: {desc_actual[:30]}...")
+            status_text.text(f"🔎 Investigando {index + 1} de {total}: {desc_actual[:30]}...")
             
             url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
+            
+            # Llamada a la IA
             datos = ejecutar_analisis_ia(desc_actual, url_val)
             
-            resultados.append({
-                "Descripción Original": desc_actual,
-                "Producto Competidor": datos.get('comp'),
-                "Tienda": datos.get('tienda'),
-                "Precio": datos.get('precio'),
-                "Moneda": datos.get('moneda'),
-                "Link Hallazgo": datos.get('link'),
-                "Análisis": datos.get('vs')
-            })
-            # PAUSA DE SEGURIDAD: Evita el error 429
-            time.sleep(4) 
-    
+            if datos:
+                resultados.append({
+                    "Descripción Original": desc_actual,
+                    "Competidor": datos.get('comp'),
+                    "Tienda": datos.get('tienda'),
+                    "Precio": datos.get('precio'),
+                    "Moneda": datos.get('moneda'),
+                    "Link Hallazgo": datos.get('link'),
+                    "Análisis": datos.get('vs')
+                })
+            
+            # Un pequeño respiro de 2 segundos para evitar cualquier bloqueo de la API
+            time.sleep(2)
+            
     status_text.empty()
     progreso.empty()
     return resultados
