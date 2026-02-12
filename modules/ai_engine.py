@@ -1,4 +1,5 @@
-from genai import Client
+from google import genai
+from google.genai import types
 import openai
 import streamlit as st
 import json
@@ -6,73 +7,59 @@ import pandas as pd
 import re
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
-    # LIMPIEZA: Quitamos códigos de Würth para que la IA busque el concepto técnico
+    # Limpieza: Borramos códigos de Würth para que la IA busque el producto, no el SKU
     desc_limpia = re.sub(r'\d{5,}', '', str(descripcion)).strip()
     
-    # PROMPT DE INVESTIGACIÓN AGRESIVA
     prompt = f"""
     ERES UN INVESTIGADOR DE MERCADO INDUSTRIAL EN URUGUAY.
     
     PRODUCTO A ANALIZAR: "{desc_limpia}"
-    URL DE REFERENCIA TÉCNICA: {url_ref}
+    REFERENCIA TÉCNICA: {url_ref}
 
-    METODOLOGÍA OBLIGATORIA:
-    1. IDENTIFICACIÓN TÉCNICA: Analiza la descripción y la URL. Identifica qué es el producto (ej. Adhesivo MS, Disco de corte, etc.). Ignora que la URL sea extranjera; úsala solo para extraer especificaciones técnicas.
-    
-    2. BÚSQUEDA REAL EN URUGUAY: Busca activamente en Google Uruguay, Mercado Libre Uruguay, Sodimac, Ingco, Salvador Livio, Pampín y otros proveedores locales.
-    
-    3. SELECCIÓN DE COMPETIDOR: Debes encontrar productos de OTRAS MARCAS (Sika, Fischer, 3M, Stanley, etc.) que se vendan en Uruguay y sean el reemplazo directo.
-    
-    4. RESPUESTA OBLIGATORIA: No acepto campos vacíos. Si no encuentras el link exacto, provee el link de la marca líder competidora en Uruguay.
+    INSTRUCCIONES DE BÚSQUEDA:
+    1. Usa la descripción y la URL para entender la función técnica (ej. Adhesivo MS, Disco de corte).
+    2. BUSCA EN URUGUAY: Usa Google Uruguay para encontrar precios en Mercado Libre UY, Sodimac, Ingco, Salvador Livio o Pampín.
+    3. COMPETENCIA: Busca marcas como Sika, Fischer, 3M, Stanley o Bosch disponibles en Uruguay.
+    4. RESPUESTA: Provee precio real, tienda y link. No acepto campos vacíos.
 
-    RESPONDE EXCLUSIVAMENTE EN JSON:
+    Responde ESTRICTAMENTE en JSON:
     {{
         "comp": "Marca y modelo competidor",
-        "tienda": "Comercio en Uruguay",
-        "imp": "Importador/Marca",
+        "tienda": "Tienda en Uruguay",
+        "imp": "Marca/Importador",
         "precio": 0.0,
         "moneda": "USD/UYU",
         "um": "Presentación",
         "link": "URL del hallazgo en Uruguay",
-        "vs": "Análisis de reemplazo"
+        "vs": "Breve análisis de reemplazo"
     }}
     """
 
-    # --- NUEVA LIBRERÍA GOOGLE GENAI ---
+    # --- MOTOR GOOGLE GENAI (MODERNO) ---
     if "GOOGLE_API_KEY" in st.secrets:
         try:
-            client_google = Client(api_key=st.secrets["GOOGLE_API_KEY"])
-            # Usamos el modelo con capacidad de búsqueda (Search Tool)
-            response = client_google.models.generate_content(
-                model="gemini-2.0-flash", 
-                contents=prompt
+            client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
+            
+            # Activamos la herramienta de búsqueda de Google (Google Search Grounding)
+            google_search_tool = types.Tool(google_search=types.GoogleSearch())
+            
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(tools=[google_search_tool])
             )
             
             res_text = response.text
-            # Limpiamos el JSON por si la IA pone basura alrededor
             if "```json" in res_text:
                 res_text = res_text.split("```json")[1].split("```")[0].strip()
             return json.loads(res_text)
         except Exception as e:
-            # Si falla Google, intentamos con OpenAI
-            pass
-
-    # --- RESPALDO: OPENAI ---
-    if "OPENAI_API_KEY" in st.secrets:
-        try:
-            client_oa = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-            response_oa = client_oa.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}],
-                response_format={ "type": "json_object" }
-            )
-            return json.loads(response_oa.choices[0].message.content)
-        except:
+            st.error(f"Error en motor Google: {e}")
             pass
 
     return {
-        "comp": "Error de investigación", "tienda": "N/A", "imp": "N/A", 
-        "precio": 0, "moneda": "N/A", "um": "N/A", "link": "N/A", "vs": "Revisar conexión"
+        "comp": "Error de conexión", "tienda": "N/A", "imp": "N/A", 
+        "precio": 0, "moneda": "N/A", "um": "N/A", "link": "N/A", "vs": "Revisar API"
     }
 
 def procesar_lote_industrial(df):
