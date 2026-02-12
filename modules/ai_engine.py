@@ -6,22 +6,18 @@ import pandas as pd
 import re
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
-    # LIMPIEZA: Borramos códigos numéricos largos para que la IA no se pierda
+    # LIMPIEZA: Borramos códigos numéricos largos para que la IA busque por nombre técnico
     desc_limpia = re.sub(r'\d{5,}', '', str(descripcion)).strip()
     
     prompt = f"""
     Eres un Investigador Forense de Mercados en Uruguay.
-    Tu objetivo es encontrar un producto COMPETIDOR local para: "{desc_limpia}"
+    Tu objetivo es encontrar un producto COMPETIDOR local en Uruguay para: "{desc_limpia}"
 
-    DATOS TÉCNICOS:
-    - ADN del producto: {desc_limpia}
-    - URL de referencia: {url_ref}
-
-    PROTOCOLOS:
-    1. ANALIZA LA URL: Si es de España, entra y entiende la función (ej. es un adhesivo MS).
-    2. BUSCA EN URUGUAY: Usa Mercado Libre UY, Sodimac, Ferreterías Industriales.
-    3. COMPETENCIA: Busca marcas como Sika, Fischer, 3M, Loctite, Stanley en Uruguay.
-    4. NO TE RINDAS: Si no hay precio exacto, busca el del equivalente funcional más cercano.
+    REGLAS DE ORO:
+    1. ANALIZA LA URL: Entiende la función del producto (ej. es un adhesivo MS, disco de corte, etc.).
+    2. LOCALIZA EN URUGUAY: Busca en Mercado Libre UY, Sodimac o Ferreterías Industriales locales.
+    3. MARCAS EQUIVALENTES: Si no hay Würth, busca Sika, Fischer, 3M, Loctite, Stanley o Bosch.
+    4. NO "PENDIENTES": Provee el precio del producto funcionalmente más cercano en Uruguay.
 
     Responde ESTRICTAMENTE en este formato JSON:
     {{
@@ -31,12 +27,11 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
         "precio": 0.0,
         "moneda": "USD/UYU",
         "um": "Presentación",
-        "link": "URL del hallazgo",
-        "vs": "Comparativa técnica"
+        "link": "URL del hallazgo en Uruguay",
+        "vs": "Breve análisis comparativo"
     }}
     """
 
-    # --- MOTOR GEMINI (PRIORIDAD GRATUITA) ---
     if "GOOGLE_API_KEY" in st.secrets:
         try:
             genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -47,16 +42,10 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
         except:
             pass
 
-    # --- FALLBACK SEGURO ---
     return {
-        "comp": "Buscando...", 
-        "tienda": "Pendiente", 
-        "imp": "N/A", 
-        "precio": 0, 
-        "moneda": "N/A", 
-        "um": "N/A", 
-        "link": "N/A", 
-        "vs": f"Análisis de {desc_limpia}"
+        "comp": "Buscando...", "tienda": "Pendiente", "imp": "N/A", 
+        "precio": 0, "moneda": "N/A", "um": "N/A", "link": "N/A", 
+        "vs": f"Analizando equivalencia para {desc_limpia}"
     }
 
 def procesar_lote_industrial(df):
@@ -64,7 +53,6 @@ def procesar_lote_industrial(df):
     status_text = st.empty()
     progreso = st.progress(0)
     
-    # Identificamos columnas (ignoramos la columna CODIGO para el filtro)
     col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción'] if c in df.columns), df.columns[1])
     col_url = next((c for c in ['URL (Opcional pero recomendada)', 'URL', 'Link'] if c in df.columns), None)
 
@@ -74,10 +62,8 @@ def procesar_lote_industrial(df):
         progreso.progress(pct)
         
         desc_actual = str(row[col_desc])
-        # Procesamos si la descripción no está vacía, sin importar el CÓDIGO
-        if pd.notna(row[col_desc]) and desc_actual.lower() != 'none' and desc_actual.strip() != '':
+        if pd.notna(row[col_desc]) and desc_actual.lower() != 'none':
             status_text.text(f"🕵️ Investigando {index + 1} de {total}: {desc_actual[:30]}...")
-            
             url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
             datos = ejecutar_analisis_ia(desc_actual, url_val)
             
