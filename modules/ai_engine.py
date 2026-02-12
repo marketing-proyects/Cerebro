@@ -1,40 +1,44 @@
 import streamlit as st
-import pandas as pd  # <--- SE AÑADE ESTA LÍNEA PARA CORREGIR EL NAMEERROR
+import pandas as pd
 import json
 import re
 import time
-import requests
 from google import genai
 from google.genai import types
 from groq import Groq
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
+    # Limpiamos cualquier código numérico sobrante para no sesgar la búsqueda
     desc_limpia = re.sub(r'\d{5,}', '', str(descripcion)).strip()
     
     prompt = f"""
-    Eres un Investigador Senior de Compras Industriales en Uruguay.
-    ARTÍCULO: "{desc_limpia}"
-    URL REFERENCIA: {url_ref}
+    ERES UN ANALISTA DE INTELIGENCIA COMERCIAL PARA EL MERCADO INDUSTRIAL EN URUGUAY.
+    
+    OBJETO DE ESTUDIO: "{desc_limpia}"
+    URL DE FICHA TÉCNICA: {url_ref}
 
-    METODOLOGÍA:
-    1. IDENTIFICACIÓN TÉCNICA: Usa la descripción y URL para entender medidas y función.
-    2. BÚSQUEDA URUGUAY: Busca en Google Uruguay resultados de Sodimac, Mercado Libre UY, Ingco, Salvador Livio o Pampin.
-    3. SELECCIÓN: Encuentra una marca de reemplazo (Sika, 3M, Fischer, Bosch, Ingco) disponible en Uruguay. No uses la misma marca del origen.
-    4. DATA EXTRACTION: Obtén precio real, tienda y link directo.
+    METODOLOGÍA DE INVESTIGACIÓN DE CAMPO:
+    1. PRIORIDAD TÉCNICA: Analiza la descripción y extrae datos de la URL (medidas, composición, uso). No importa si la URL es de otro país, úsala para identificar el producto exacto.
+    2. BÚSQUEDA URUGUAY: Localiza productos de OTRAS MARCAS (Sika, 3M, Fischer, Bosch, Stanley, etc.) disponibles en Uruguay.
+    3. CADENA DE VALOR: Identifica quién es el Importador y quién el Distribuidor (si es el mismo, repite el nombre).
+    4. POSICIONAMIENTO: Clasifica la Calidad Percibida en: 'Premium', 'Media' o 'Económica'.
 
-    Responde ESTRICTAMENTE en JSON:
+    Responde ESTRICTAMENTE en este formato JSON:
     {{
-        "comp": "Marca y modelo",
-        "tienda": "Tienda en Uruguay",
+        "comp": "Marca y Modelo Competidor",
+        "marca": "Marca",
+        "presentacion": "Unidad de empaque (ej. 310ml, Pack x100)",
         "precio": 0.0,
         "moneda": "USD/UYU",
-        "um": "Presentación",
-        "link": "URL en Uruguay",
-        "vs": "Análisis de reemplazo"
+        "importador": "Nombre del Importador en Uruguay",
+        "distribuidor": "Punto de venta / Distribuidor",
+        "calidad": "Premium / Media / Económica",
+        "link": "URL del hallazgo en Uruguay",
+        "analisis_vs": "Diferencia técnica clave con el original"
     }}
     """
 
-    # --- 1. MOTOR PRINCIPAL: GEMINI (Cuenta personal moderna) ---
+    # --- MOTOR PRINCIPAL: GEMINI 2.0 (Con Búsqueda de Google) ---
     if "GOOGLE_API_KEY" in st.secrets:
         try:
             client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -51,9 +55,9 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
                 res_text = res_text[res_text.find("{"):res_text.rfind("}")+1]
                 return json.loads(res_text)
         except Exception:
-            pass # Si falla Gemini, salta al respaldo
+            pass
 
-    # --- 2. RESPALDO: GROQ (Llama 3) ---
+    # --- RESPALDO: GROQ (Si Gemini falla o se satura) ---
     if "GROQ_API_KEY" in st.secrets:
         try:
             client_groq = Groq(api_key=st.secrets["GROQ_API_KEY"])
@@ -63,7 +67,7 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
                 response_format={"type": "json_object"}
             )
             return json.loads(completion.choices[0].message.content)
-        except Exception:
+        except:
             pass
 
     return None
@@ -73,7 +77,7 @@ def procesar_lote_industrial(df):
     status_text = st.empty()
     progreso = st.progress(0)
     
-    # Identificar columnas
+    # Identificación de columnas (No dependemos del Código)
     col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción'] if c in df.columns), df.columns[0])
     col_url = next((c for c in ['URL (Opcional pero recomendada)', 'URL', 'Link'] if c in df.columns), None)
 
@@ -83,8 +87,9 @@ def procesar_lote_industrial(df):
         progreso.progress(pct)
         
         desc_actual = str(row[col_desc])
+        # Procesamos aunque el código sea "None" o vacío
         if pd.notna(row[col_desc]) and desc_actual.lower() != 'none':
-            status_text.info(f"🕵️ Investigando {index+1}/{total}: {desc_actual[:30]}")
+            status_text.info(f"🕵️ Investigando Mercado UY: {desc_actual[:35]}...")
             
             url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
             datos = ejecutar_analisis_ia(desc_actual, url_val)
@@ -92,21 +97,19 @@ def procesar_lote_industrial(df):
             if datos:
                 resultados.append({
                     "Descripción Original": desc_actual,
-                    "Producto Competidor": datos.get('comp'),
-                    "Tienda": datos.get('tienda'),
+                    "Competidor": datos.get('comp'),
+                    "Marca": datos.get('marca'),
+                    "Presentación": datos.get('presentacion'),
                     "Precio": datos.get('precio'),
                     "Moneda": datos.get('moneda'),
-                    "Link Hallazgo": datos.get('link'),
-                    "Análisis de Reemplazo": datos.get('vs')
-                })
-            else:
-                resultados.append({
-                    "Descripción Original": desc_actual,
-                    "Producto Competidor": "No hallado",
-                    "Tienda": "N/A", "Precio": 0, "Moneda": "N/A", "Link Hallazgo": "N/A", "Análisis de Reemplazo": "Error en motores"
+                    "Importador": datos.get('importador'),
+                    "Distribuidor": datos.get('distribuidor'),
+                    "Calidad": datos.get('calidad'),
+                    "Link": datos.get('link'),
+                    "Análisis": datos.get('analisis_vs')
                 })
             
-            time.sleep(1.5) # Pausa de estabilidad
+            time.sleep(1.5) # Pausa técnica para estabilidad
             
     status_text.empty()
     progreso.empty()
