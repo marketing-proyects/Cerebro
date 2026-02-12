@@ -1,18 +1,10 @@
-import openai
 import google.generativeai as genai
+import openai
 import streamlit as st
 import json
 import pandas as pd
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
-    # 1. Configuración de Modelos
-    # Gemini (Google)
-    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-    model_gemini = genai.GenerativeModel('gemini-1.5-pro')
-    
-    # OpenAI / Copilot Engine (GPT-4o)
-    client_oa = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
     prompt = f"""
     Eres un Investigador Forense de Mercados para Würth Uruguay. 
     Tu misión es encontrar competencia local basada en ADN técnico.
@@ -21,9 +13,9 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
     URL REFERENCIA: {url_ref}
 
     INSTRUCCIONES:
-    1. Analiza la URL para entender la química/mecánica del producto (aunque sea de España).
+    1. Analiza la URL (incluso si es de España) para entender la química o mecánica. 
     2. Busca equivalentes en Uruguay (Mercado Libre UY, Sodimac, Ferreterías Industriales).
-    3. Identifica marcas competidoras: Sika, Fischer, 3M, Loctite, Stanley, etc.
+    3. Ignora códigos numéricos; busca por FUNCIÓN técnica.
     
     Responde estrictamente en JSON:
     {{
@@ -32,52 +24,52 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
         "imp": "Marca o Importador local",
         "precio": 0.0,
         "moneda": "USD/UYU",
-        "um": "Presentación (ej. 310ml)",
+        "um": "Presentación",
         "link": "URL del hallazgo en Uruguay",
-        "rank": "Social Proof / Opiniones",
+        "rank": "Opiniones",
         "vs": "Diferencia técnica clave",
-        "obs": "Acciones detectadas (Promos/Stock)"
+        "obs": "Notas (Promos/Stock)"
     }}
     """
 
-    # --- ESTRATEGIA DE TRIANGULACIÓN ---
-    
-    # Intento 1: Gemini (Mejor para búsqueda web en Uruguay)
-    try:
-        response = model_gemini.generate_content(prompt)
-        json_clean = response.text.replace('```json', '').replace('```', '').strip()
-        data = json.loads(json_clean)
-        if data.get("precio", 0) > 0:
-            data["motor_utilizado"] = "Gemini (Google)"
-            return data
-    except:
-        pass
+    # --- INTENTO 1: GEMINI (GRATUITO Y PRIORITARIO) ---
+    if "GOOGLE_API_KEY" in st.secrets:
+        try:
+            genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            response = model.generate_content(prompt)
+            # Limpieza de markdown
+            res_text = response.text.replace('```json', '').replace('```', '').strip()
+            return json.loads(res_text)
+        except Exception as e:
+            st.error(f"Error con Gemini: {e}")
 
-    # Intento 2: OpenAI / Copilot (Mejor para razonamiento técnico y equivalencias)
-    try:
-        response_oa = client_oa.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}],
-            response_format={ "type": "json_object" }
-        )
-        data = json.loads(response_oa.choices[0].message.content)
-        data["motor_utilizado"] = "GPT-4o (Copilot Engine)"
-        return data
-    except:
-        return None
+    # --- INTENTO 2: OPENAI (SOLO SI TIENE SALDO) ---
+    if "OPENAI_API_KEY" in st.secrets:
+        try:
+            client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": prompt}],
+                response_format={ "type": "json_object" }
+            )
+            return json.loads(response.choices[0].message.content)
+        except:
+            pass
+            
+    return None
 
 def procesar_lote_industrial(df):
     resultados = []
     progreso = st.progress(0)
-    
+    # Detectar columnas
     col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción', 'Especificación'] if c in df.columns), df.columns[0])
     col_url = next((c for c in ['URL', 'Enlace', 'Link', 'URL (Opcional pero recomendada)'] if c in df.columns), None)
 
     for index, row in df.iterrows():
         progreso.progress((index + 1) / len(df))
         if pd.notna(row[col_desc]):
-            url = row[col_url] if col_url else None
-            datos = ejecutar_analisis_ia(row[col_desc], url)
+            datos = ejecutar_analisis_ia(row[col_desc], row[col_url] if col_url else None)
             if datos:
                 resultados.append({
                     "Descripción": row[col_desc],
@@ -88,7 +80,6 @@ def procesar_lote_industrial(df):
                     "Moneda": datos['moneda'],
                     "U.M": datos['um'],
                     "Link": datos['link'],
-                    "Análisis": datos['vs'],
-                    "Motor": datos.get('motor_utilizado', 'N/A')
+                    "Análisis": datos['vs']
                 })
     return resultados
