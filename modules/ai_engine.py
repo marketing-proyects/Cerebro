@@ -14,23 +14,24 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
     - Descripción: {descripcion}
     - URL Fuente: {url_ref}
 
-    PROTOCOLOS DE ANÁLISIS:
-    1. DETECTIVE DE URL: Analiza el contenido de la URL. Si hay enlaces a Fichas Técnicas (PDF) o especificaciones, asume su contenido (composición química, torque, resistencia, normas ISO).
-    2. DESESTIMACIÓN: Ignora cualquier código numérico. Céntrate en la FUNCIÓN del objeto.
-    3. RASTREO URUGUAY: Busca competidores directos en Uruguay (Mercado Libre UY, Sodimac, Ferreterías Industriales). Identifica marcas como Sika, Fischer, 3M, Loctite, Stanley, etc.
+    PROTOCOLOS DE INVESTIGACIÓN:
+    1. ANALIZADOR DE URL: Analiza profundamente el contenido de la URL. Si detectas enlaces a Fichas Técnicas o PDFs, procesa su contenido implícito (composición, torque, resistencia, normas ISO).
+    2. DESESTIMACIÓN TOTAL: Ignora códigos numéricos como "{descripcion.split(',')[0] if ',' in descripcion else ''}". Enfócate en la FUNCIÓN técnica.
+    3. RASTREO URUGUAY: Busca competidores que cumplan la misma función en Mercado Libre UY, Sodimac Uruguay y ferreterías industriales locales. 
+    4. MARCAS OBJETIVO: Sika, Fischer, 3M, Loctite, Stanley, etc. presentes en Uruguay.
 
-    Responde en JSON:
+    Responde estrictamente en JSON:
     {{
         "comp": "Nombre exacto del competidor",
-        "tienda": "Tienda en Uruguay",
-        "imp": "Importador o Marca local",
+        "tienda": "Comercio en Uruguay",
+        "imp": "Marca / Importador local",
         "precio": 0.0,
         "moneda": "USD/UYU",
         "um": "Presentación (ej. 310ml, Pack x100)",
-        "link": "URL del producto en Uruguay",
-        "rank": "Opiniones/Ranking detectado",
-        "vs": "Diferencia técnica clave detectada",
-        "obs": "Promos o info de stock"
+        "link": "URL del hallazgo en Uruguay",
+        "rank": "Opiniones y ranking detectado",
+        "vs": "Análisis técnico: Würth vs Competencia",
+        "obs": "Acciones detectadas (Promos, stock, temporalidad)"
     }}
     """
     try:
@@ -49,8 +50,9 @@ def procesar_lote_industrial(df):
     resultados = []
     progreso = st.progress(0)
     
-    col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción', 'Especificación'] if c in df.columns), df.columns[1])
-    col_url = next((c for c in ['URL', 'Enlace', 'Link'] if c in df.columns), None)
+    # Mapeo flexible de columnas para tu Excel
+    col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción', 'Especificación'] if c in df.columns), df.columns[0])
+    col_url = next((c for c in ['URL', 'Enlace', 'Link', 'URL (Opcional pero recomendada)'] if c in df.columns), None)
 
     for index, row in df.iterrows():
         progreso.progress((index + 1) / len(df))
