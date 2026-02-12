@@ -3,36 +3,34 @@ import streamlit as st
 import json
 import pandas as pd
 
-def ejecutar_analisis_ia(sku, descripcion, url_ref=None):
+def ejecutar_analisis_ia(descripcion, url_ref=None):
     client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
     
     prompt = f"""
-    Eres un Analista de Inteligencia de Mercado en Uruguay. 
-    Tu misión es realizar un análisis competitivo profundo para este producto:
-    
-    PRODUCTO REFERENCIA:
+    Eres un Investigador Forense de Mercado Industrial en Uruguay. 
+    Tu misión es desglosar la "Identidad Técnica" de un producto y encontrar su competencia local.
+
+    ENTRADA DE DATOS:
     - Descripción: {descripcion}
-    - URL de ADN Técnico: {url_ref}
-    
-    INSTRUCCIONES DE INVESTIGACIÓN:
-    1. ANALIZA LA URL: Extrae la ficha técnica. Identifica qué es el producto (ej. Adhesivo MS, Silicona Neutra, Limpiador solvente), para qué sirve y sus especificaciones clave.
-    2. RASTREO EN URUGUAY: Busca en tiempo real productos que compitan DIRECTAMENTE en Uruguay (Mercado Libre UY, Sodimac, ferreterías industriales locales).
-    3. DETALLES DE COMPETENCIA: Encuentra marcas como Sika, Soudal, Fischer, 3M, Loctite o similares presentes en el mercado local.
-    
-    IMPORTANTE: Si no hay match exacto, busca el equivalente de mayor ranking.
-    
-    Responde estrictamente en JSON:
+    - URL Fuente: {url_ref}
+
+    PROTOCOLOS DE ANÁLISIS:
+    1. DETECTIVE DE URL: Analiza el contenido de la URL. Si hay enlaces a Fichas Técnicas (PDF) o especificaciones, asume su contenido (composición química, torque, resistencia, normas ISO).
+    2. DESESTIMACIÓN: Ignora cualquier código numérico. Céntrate en la FUNCIÓN del objeto.
+    3. RASTREO URUGUAY: Busca competidores directos en Uruguay (Mercado Libre UY, Sodimac, Ferreterías Industriales). Identifica marcas como Sika, Fischer, 3M, Loctite, Stanley, etc.
+
+    Responde en JSON:
     {{
-        "comp": "Nombre exacto del producto competencia",
-        "tienda": "Comercio donde se vende en Uruguay",
-        "imp": "Marca / Empresa que lo importa o fabrica",
+        "comp": "Nombre exacto del competidor",
+        "tienda": "Tienda en Uruguay",
+        "imp": "Importador o Marca local",
         "precio": 0.0,
-        "moneda": "USD o UYU",
-        "um": "Presentación (ej. Cartucho 310ml, Spray 500ml)",
-        "link": "URL del producto en el mercado uruguayo",
-        "rank": "Puntaje/Ranking y volumen de comentarios detectado",
-        "vs": "Comparativa de calidad: Würth vs Competencia",
-        "obs": "Notas de interés (Promociones, stock, acciones detectadas)"
+        "moneda": "USD/UYU",
+        "um": "Presentación (ej. 310ml, Pack x100)",
+        "link": "URL del producto en Uruguay",
+        "rank": "Opiniones/Ranking detectado",
+        "vs": "Diferencia técnica clave detectada",
+        "obs": "Promos o info de stock"
     }}
     """
     try:
@@ -40,11 +38,9 @@ def ejecutar_analisis_ia(sku, descripcion, url_ref=None):
             model="gpt-4o", 
             messages=[{"role": "user", "content": prompt}],
             response_format={ "type": "json_object" },
-            temperature=0.2 # Menor temperatura para mayor precisión técnica
+            temperature=0.1
         )
         data = json.loads(response.choices[0].message.content)
-        data['sku_orig'] = sku
-        data['desc_orig'] = descripcion
         return data
     except:
         return None
@@ -53,19 +49,17 @@ def procesar_lote_industrial(df):
     resultados = []
     progreso = st.progress(0)
     
-    # Identificación robusta de columnas
-    col_sku = next((c for c in ['CODIGO', 'Material', 'Código'] if c in df.columns), df.columns[0])
     col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción', 'Especificación'] if c in df.columns), df.columns[1])
-    col_url = next((c for c in ['URL (Opcional pero recomendada)', 'URL', 'Enlace'] if c in df.columns), None)
+    col_url = next((c for c in ['URL', 'Enlace', 'Link'] if c in df.columns), None)
 
     for index, row in df.iterrows():
         progreso.progress((index + 1) / len(df))
         if pd.notna(row[col_desc]):
             url = row[col_url] if col_url else None
-            datos = ejecutar_analisis_ia(row[col_sku], row[col_desc], url)
+            datos = ejecutar_analisis_ia(row[col_desc], url)
             if datos:
                 resultados.append({
-                    "SKU Würth": datos['sku_orig'],
+                    "Descripción Original": row[col_desc],
                     "Producto Competidor": datos['comp'],
                     "Tienda (Venta)": datos['tienda'],
                     "Importador/Marca": datos['imp'],
@@ -74,7 +68,7 @@ def procesar_lote_industrial(df):
                     "Presentación": datos['um'],
                     "Link Referencia": datos['link'],
                     "Social Proof": datos['rank'],
-                    "Würth vs Comp.": datos['vs'],
+                    "Análisis vs Würth": datos['vs'],
                     "Observaciones": datos['obs']
                 })
     return resultados
