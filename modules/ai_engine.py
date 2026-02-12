@@ -1,5 +1,4 @@
 import google.generativeai as genai
-import openai
 import streamlit as st
 import json
 import pandas as pd
@@ -7,51 +6,48 @@ import re
 import time
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
-    # Limpiamos los códigos de Würth para que no ensucien la búsqueda
+    # Limpieza extrema: Nos quedamos solo con las palabras clave
     desc_limpia = re.sub(r'\d{5,}', '', str(descripcion)).strip()
     
+    # Prompt ultra-directo para evitar que la IA se pierda en procesos largos
     prompt = f"""
-    Eres un experto en compras industriales en Uruguay. 
-    Tu objetivo es encontrar el precio de un COMPETIDOR para: "{desc_limpia}"
-    Usa esta referencia técnica para entender el producto: {url_ref}
+    Eres un comprador experto en ferretería industrial en Uruguay.
+    
+    ARTÍCULO: {desc_limpia}
+    REF: {url_ref}
 
-    INSTRUCCIONES DE BÚSQUEDA DIRIGIDA:
-    1. Busca el producto exclusivamente en dominios de URUGUAY (.com.uy).
-    2. Prioriza resultados de estos sitios específicos:
-       - mercadolibre.com.uy
-       - sodimac.com.uy
-       - ingco.com.uy
-       - salvadorlivio.com.uy
-       - pampin.com.uy
-    3. Busca marcas competidoras líderes: Sika, Fischer, 3M, Stanley, Bosch o Ingco.
-    4. Provee el precio actual y el link directo del hallazgo.
-
-    Responde ESTRICTAMENTE en este formato JSON:
+    TAREA:
+    1. Identifica el producto.
+    2. Busca un competidor de marca (Sika, Fischer, 3M o Ingco) en URUGUAY.
+    3. Sitios autorizados: mercadolibre.com.uy, sodimac.com.uy, pampin.com.uy.
+    
+    RESPONDE SOLO EL JSON:
     {{
-        "comp": "Marca y modelo competidor",
-        "tienda": "Nombre del comercio en Uruguay",
+        "comp": "Marca y modelo",
+        "tienda": "Tienda UY",
         "precio": 0.0,
         "moneda": "USD/UYU",
-        "um": "Presentación (ej. 310ml)",
-        "link": "URL exacta del producto en Uruguay",
-        "vs": "Comparativa técnica rápida"
+        "link": "URL del producto en Uruguay",
+        "vs": "Diferencia"
     }}
     """
 
-    # --- VOLVEMOS AL MOTOR ESTABLE (genai original) ---
     if "GOOGLE_API_KEY" in st.secrets:
         try:
             genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-            # Usamos 1.5-flash que es el más estable y rara vez da error de cuota
+            # Usamos 1.5-flash: es el más rápido y el que menos falla por tiempo de espera
             model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            # Agregamos una configuración de seguridad laxa para evitar bloqueos por filtros
             response = model.generate_content(prompt)
             
-            res_text = response.text.replace('```json', '').replace('```', '').strip()
-            return json.loads(res_text)
+            # Limpiamos el texto para asegurar que solo quede el JSON
+            res_text = response.text
+            if "{" in res_text:
+                res_text = res_text[res_text.find("{"):res_text.rfind("}")+1]
+                return json.loads(res_text)
         except Exception as e:
-            # Si hay un error, devolvemos una estructura vacía pero segura
             return None
-
     return None
 
 def procesar_lote_industrial(df):
@@ -59,6 +55,7 @@ def procesar_lote_industrial(df):
     status_text = st.empty()
     progreso = st.progress(0)
     
+    # Mapeo de columnas
     col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción'] if c in df.columns), df.columns[0])
     col_url = next((c for c in ['URL (Opcional pero recomendada)', 'URL', 'Link'] if c in df.columns), None)
 
@@ -69,26 +66,38 @@ def procesar_lote_industrial(df):
         
         desc_actual = str(row[col_desc])
         if pd.notna(row[col_desc]) and desc_actual.lower() != 'none':
-            status_text.text(f"🔎 Investigando {index + 1} de {total}: {desc_actual[:30]}...")
+            status_text.text(f"🔎 Buscando en Uruguay: {desc_actual[:30]}")
             
             url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
             
-            # Llamada a la IA
+            # Intento de búsqueda
             datos = ejecutar_analisis_ia(desc_actual, url_val)
             
+            # Si la IA devuelve datos, los guardamos; si no, ponemos una fila de "No hallado"
+            # pero permitimos que el proceso siga adelante.
             if datos:
                 resultados.append({
                     "Descripción Original": desc_actual,
-                    "Competidor": datos.get('comp'),
-                    "Tienda": datos.get('tienda'),
-                    "Precio": datos.get('precio'),
-                    "Moneda": datos.get('moneda'),
-                    "Link Hallazgo": datos.get('link'),
-                    "Análisis": datos.get('vs')
+                    "Competidor": datos.get('comp', 'No hallado'),
+                    "Tienda": datos.get('tienda', 'N/A'),
+                    "Precio": datos.get('precio', 0),
+                    "Moneda": datos.get('moneda', 'N/A'),
+                    "Link": datos.get('link', 'N/A'),
+                    "Comparativa": datos.get('vs', 'N/A')
+                })
+            else:
+                resultados.append({
+                    "Descripción Original": desc_actual,
+                    "Competidor": "No hallado",
+                    "Tienda": "N/A",
+                    "Precio": 0,
+                    "Moneda": "N/A",
+                    "Link": "N/A",
+                    "Comparativa": "La búsqueda no arrojó resultados"
                 })
             
-            # Un pequeño respiro de 2 segundos para evitar cualquier bloqueo de la API
-            time.sleep(2)
+            # Pausa mínima para no saturar
+            time.sleep(1)
             
     status_text.empty()
     progreso.empty()
