@@ -8,45 +8,29 @@ from google.genai import types
 from groq import Groq
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
-    desc_limpia = str(descripcion).strip()
-    
-    # PROMPT DE EXTRACCIÓN Y BÚSQUEDA MULTI-COMPETIDOR
+    # Usamos tu nuevo prompt estratégico
     prompt = f"""
-    ERES UN INGENIERO DE PRODUCTO Y ANALISTA DE MERCADO EN URUGUAY.
-    
-    PASO 1: EXTRACCIÓN DE ADN TÉCNICO
-    Analiza profundamente la URL: {url_ref} y la descripción: "{desc_limpia}".
-    Define: ¿Qué es el objeto? ¿De qué material está hecho? ¿Para qué máquina o proceso sirve exactamente?
-    (Si es un cabezal de desmalezadora, NO puede ser un adhesivo químico).
+    Actúa como un Especialista en Inteligencia Competitiva y SEO Senior. 
+    Tu objetivo es realizar un mapeo exhaustivo del ecosistema competitivo de la siguiente URL: {url_ref}
+    Descripción de apoyo: "{descripcion}"
 
-    PASO 2: BÚSQUEDA DIRIGIDA EN URUGUAY (google.com.uy)
-    Busca competidores que cumplan la MISMA función técnica en importadores relevantes de Uruguay: 
-    Salvador Livio, Ingco Uruguay, Pampin, Orofino, Sodimac, Mercado Libre UY.
+    Protocolo de análisis:
+    1. IDENTIFICACIÓN DE CORE BUSINESS: Analiza la URL y define propuesta de valor, audiencia y keywords principales.
+    2. COMPETENCIA DIRECTA (SERP Rivals): Identifica 5 sitios web en URUGUAY que compiten por el mismo producto/servicio.
+    3. COMPETENCIA INDIRECTA/SUSTITUTOS: Identifica 3 sitios (blogs, foros o comparadores) que resuelven el mismo problema en Uruguay.
+    4. ANÁLISIS DE BRECHA (Gap Analysis): Para los 3 competidores más fuertes, genera datos de: Nombre/URL, Ventaja Competitiva, y Estrategia de Contenidos.
+    5. OPORTUNIDAD "BLUE OCEAN": Sugiere 2 ángulos de contenido para diferenciarse en el mercado uruguayo.
 
-    PASO 3: FILTRO DE ALUCINACIÓN
-    Si el competidor hallado no sirve para la misma máquina o proceso que el original, descártalo.
-
-    INSTRUCCIÓN DE SALIDA:
-    Debes encontrar AL MENOS 3 COMPETIDORES DISTINTOS.
-    Responde ESTRICTAMENTE en este formato JSON (Lista de objetos):
+    IMPORTANTE: Verifica que los sitios están activos en 2026.
+    Responde ESTRICTAMENTE en este formato JSON para que pueda procesarlo:
     {{
-        "adn_tecnico": "Breve descripción técnica que entendiste del original",
-        "competidores": [
-            {{
-                "comp": "Nombre completo del competidor 1",
-                "marca": "Marca",
-                "presentacion": "Medidas/Empaque",
-                "precio": 0.0,
-                "moneda": "USD/UYU",
-                "importador": "Importador en Uruguay",
-                "distribuidor": "Punto de venta",
-                "calidad": "Premium/Media/Económica",
-                "link": "URL del hallazgo en Uruguay",
-                "vs": "Comparativa técnica vs original"
-            }},
-            {{ "..." }},
-            {{ "..." }}
-        ]
+        "core_business": "Resumen de propuesta de valor",
+        "keywords": ["key1", "key2"],
+        "competidores_directos": [
+            {{"nombre": "Nombre", "url": "URL", "ventaja": "Precio/Especialización", "contenido": "Estrategia"}}
+        ],
+        "competidores_indirectos": ["Sitio 1", "Sitio 2"],
+        "blue_ocean": ["Oportunidad 1", "Oportunidad 2"]
     }}
     """
 
@@ -67,7 +51,7 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
                 return json.loads(res_text)
         except Exception: pass
 
-    # Respaldo Groq (Llama 3.3)
+    # Backup con Groq
     if "GROQ_API_KEY" in st.secrets:
         try:
             client_groq = Groq(api_key=st.secrets["GROQ_API_KEY"])
@@ -84,52 +68,37 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
 def procesar_lote_industrial(df):
     resultados_finales = []
     status_text = st.empty()
-    progreso = st.progress(0)
     
     col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción'] if c in df.columns), df.columns[0])
     col_url = next((c for c in ['URL (Opcional pero recomendada)', 'URL', 'Link'] if c in df.columns), None)
 
-    total = len(df)
+    # Procesamos solo el primer artículo para esta prueba estratégica (o el lote completo)
     for index, row in df.iterrows():
-        pct = (index + 1) / total
-        progreso.progress(pct)
-        
         desc_actual = str(row[col_desc])
-        status_text.info(f"🧬 Extrayendo ADN y buscando competidores: {desc_actual[:30]}...")
-        
         url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
         
-        # Llamada a la IA (devuelve una lista de competidores)
+        if not url_val:
+            continue
+
+        status_text.info(f"🚀 Realizando Mapeo SEO & Competitivo: {desc_actual[:30]}...")
         data_ia = ejecutar_analisis_ia(desc_actual, url_val)
         
-        if data_ia and "competidores" in data_ia:
-            adn = data_ia.get("adn_tecnico", "N/A")
-            for c in data_ia["competidores"]:
+        if data_ia:
+            # Por cada competidor directo encontrado, creamos una fila en el reporte
+            for comp in data_ia.get("competidores_directos", []):
                 resultados_finales.append({
-                    "Original (Würth)": desc_actual,
-                    "ADN Identificado": adn,
-                    "Competidor": c.get('comp'),
-                    "Marca": c.get('marca'),
-                    "Presentación": c.get('presentacion'),
-                    "Precio": c.get('precio'),
-                    "Moneda": c.get('moneda'),
-                    "Importador": c.get('importador'),
-                    "Distribuidor": c.get('distribuidor'),
-                    "Calidad": c.get('calidad'),
-                    "Link": c.get('link'),
-                    "Análisis": c.get('vs')
+                    "Producto Würth": desc_actual,
+                    "Propuesta de Valor": data_ia.get("core_business"),
+                    "Competidor": comp.get("nombre"),
+                    "URL Competidor": comp.get("url"),
+                    "Ventaja Competidor": comp.get("ventaja"),
+                    "Estrategia Contenido": comp.get("contenido"),
+                    "Oportunidad Blue Ocean": " / ".join(data_ia.get("blue_ocean", [])),
+                    "Keywords": ", ".join(data_ia.get("keywords", []))
                 })
-        else:
-            # Fila de error si no encuentra nada
-            resultados_finales.append({
-                "Original (Würth)": desc_actual,
-                "ADN Identificado": "Error de identificación",
-                "Competidor": "No hallado", "Marca": "N/A", "Precio": 0, "Moneda": "N/A",
-                "Importador": "N/A", "Distribuidor": "N/A", "Calidad": "N/A", "Link": "N/A", "Análisis": "Revisar API"
-            })
         
-        time.sleep(3) # Pausa aumentada para permitir 3 búsquedas profundas por producto
+        # Pausa para navegación profunda
+        time.sleep(5)
             
     status_text.empty()
-    progreso.empty()
     return resultados_finales
