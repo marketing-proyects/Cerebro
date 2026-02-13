@@ -8,28 +8,51 @@ from google.genai import types
 from groq import Groq
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
-    # Usamos tu nuevo prompt estratégico
+    desc_limpia = str(descripcion).strip()
+    
+    # NUEVO PROMPT: PROTOCOLO DE INTELIGENCIA COMPETITIVA & SEO SENIOR
     prompt = f"""
-    Actúa como un Especialista en Inteligencia Competitiva y SEO Senior. 
+    Actúa como un Especialista en Inteligencia Competitiva y SEO Senior en Uruguay. 
     Tu objetivo es realizar un mapeo exhaustivo del ecosistema competitivo de la siguiente URL: {url_ref}
-    Descripción de apoyo: "{descripcion}"
+    Descripción base: "{desc_limpia}"
 
-    Protocolo de análisis:
-    1. IDENTIFICACIÓN DE CORE BUSINESS: Analiza la URL y define propuesta de valor, audiencia y keywords principales.
-    2. COMPETENCIA DIRECTA (SERP Rivals): Identifica 5 sitios web en URUGUAY que compiten por el mismo producto/servicio.
-    3. COMPETENCIA INDIRECTA/SUSTITUTOS: Identifica 3 sitios (blogs, foros o comparadores) que resuelven el mismo problema en Uruguay.
-    4. ANÁLISIS DE BRECHA (Gap Analysis): Para los 3 competidores más fuertes, genera datos de: Nombre/URL, Ventaja Competitiva, y Estrategia de Contenidos.
-    5. OPORTUNIDAD "BLUE OCEAN": Sugiere 2 ángulos de contenido para diferenciarse en el mercado uruguayo.
+    PROTOCOLO DE ANÁLISIS (ESTRICTO):
 
-    IMPORTANTE: Verifica que los sitios están activos en 2026.
-    Responde ESTRICTAMENTE en este formato JSON para que pueda procesarlo:
+    1. IDENTIFICACIÓN DE ADN TÉCNICO: Define qué es el objeto, materiales, audiencia objetivo y para qué máquina o proceso sirve exactamente. 
+       (IMPORTANTE: Si la URL es un accesorio mecánico, NO puede ser un químico).
+
+    2. COMPETENCIA DIRECTA (SERP Rivals): Identifica 3 empresas en URUGUAY que importen o vendan exactamente el mismo producto/servicio (ej. Salvador Livio, Ingco, Pampin, Orofino, Sodimac).
+
+    3. ANÁLISIS DE MERCADO URUGUAY: Para cada competidor detectado, investiga:
+       - Importador: Quién introduce la marca al país (ej. DT Importaciones, Edintor, etc.).
+       - Precios: Estima el precio mayorista (B2B) y minorista (PVP).
+       - Estrategia Comercial: ¿Es liderazgo en costo? ¿Especialización técnica? ¿Omnicanalidad?
+       - Pirámide de Calidad: Clasifícalo en 'Premium', 'Media' o 'Económica'.
+
+    4. COMPETENCIA INDIRECTA: Identifica sitios que resuelven el mismo problema (ej. blogs técnicos o comparadores).
+
+    5. OPORTUNIDAD "BLUE OCEAN": Sugiere 2 nichos o ángulos de contenido que Würth Uruguay podría explotar.
+
+    IMPORTANTE: Verifica que los sitios están activos en 2026. 
+    Responde ESTRICTAMENTE en este formato JSON (Lista de competidores):
     {{
-        "core_business": "Resumen de propuesta de valor",
-        "keywords": ["key1", "key2"],
-        "competidores_directos": [
-            {{"nombre": "Nombre", "url": "URL", "ventaja": "Precio/Especialización", "contenido": "Estrategia"}}
+        "adn_tecnico": "Propuesta de valor y descripción técnica que entendiste",
+        "keywords_principales": ["key1", "key2"],
+        "mapeo_competitivo": [
+            {{
+                "nombre_competidor": "Nombre",
+                "marca": "Marca",
+                "importador": "Importador legal en Uruguay",
+                "presentacion": "Unidad/Empaque",
+                "precio_mayorista": 0.0,
+                "precio_minorista": 0.0,
+                "moneda": "USD/UYU",
+                "estrategia_comercial": "Descripción de su táctica de ventas",
+                "calidad_percibida": "Premium/Media/Económica",
+                "url_evidencia": "Link activo en Uruguay",
+                "analisis_gap": "Ventaja competitiva vs Würth"
+            }}
         ],
-        "competidores_indirectos": ["Sitio 1", "Sitio 2"],
         "blue_ocean": ["Oportunidad 1", "Oportunidad 2"]
     }}
     """
@@ -68,37 +91,46 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
 def procesar_lote_industrial(df):
     resultados_finales = []
     status_text = st.empty()
+    progreso = st.progress(0)
     
     col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción'] if c in df.columns), df.columns[0])
     col_url = next((c for c in ['URL (Opcional pero recomendada)', 'URL', 'Link'] if c in df.columns), None)
 
-    # Procesamos solo el primer artículo para esta prueba estratégica (o el lote completo)
+    total = len(df)
     for index, row in df.iterrows():
+        pct = (index + 1) / total
+        progreso.progress(pct)
+        
         desc_actual = str(row[col_desc])
         url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
         
         if not url_val:
             continue
 
-        status_text.info(f"🚀 Realizando Mapeo SEO & Competitivo: {desc_actual[:30]}...")
+        status_text.info(f"🚀 Mapeo Estratégico & ADN: {desc_actual[:30]}...")
         data_ia = ejecutar_analisis_ia(desc_actual, url_val)
         
-        if data_ia:
-            # Por cada competidor directo encontrado, creamos una fila en el reporte
-            for comp in data_ia.get("competidores_directos", []):
+        if data_ia and "mapeo_competitivo" in data_ia:
+            adn = data_ia.get("adn_tecnico", "N/A")
+            for comp in data_ia["mapeo_competitivo"]:
                 resultados_finales.append({
-                    "Producto Würth": desc_actual,
-                    "Propuesta de Valor": data_ia.get("core_business"),
-                    "Competidor": comp.get("nombre"),
-                    "URL Competidor": comp.get("url"),
-                    "Ventaja Competidor": comp.get("ventaja"),
-                    "Estrategia Contenido": comp.get("contenido"),
-                    "Oportunidad Blue Ocean": " / ".join(data_ia.get("blue_ocean", [])),
-                    "Keywords": ", ".join(data_ia.get("keywords", []))
+                    "Original (Würth)": desc_actual,
+                    "ADN Identificado": adn,
+                    "Competidor": comp.get("nombre_competidor"),
+                    "Marca": comp.get("marca"),
+                    "Importador": comp.get("importador"),
+                    "Presentación": comp.get("presentacion"),
+                    "P. Mayorista": comp.get("precio_mayorista"),
+                    "P. Minorista": comp.get("precio_minorista"),
+                    "Moneda": comp.get("moneda"),
+                    "Estrategia": comp.get("estrategia_comercial"),
+                    "Calidad": comp.get("calidad_percibida"),
+                    "Gap vs Würth": comp.get("analisis_gap"),
+                    "Link": comp.get("url_evidencia")
                 })
         
-        # Pausa para navegación profunda
-        time.sleep(5)
+        time.sleep(5) # Pausa para navegación profunda de 3 competidores
             
     status_text.empty()
+    progreso.empty()
     return resultados_finales
