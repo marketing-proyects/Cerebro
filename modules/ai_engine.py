@@ -8,40 +8,46 @@ from google.genai import types
 from groq import Groq
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
-    # Limpiamos cualquier código numérico sobrante para no sesgar la búsqueda
-    desc_limpia = re.sub(r'\d{5,}', '', str(descripcion)).strip()
+    # Limpieza: eliminamos cualquier residuo numérico para que la IA se enfoque en la semántica
+    desc_limpia = str(descripcion).strip()
     
     prompt = f"""
-    ERES UN ANALISTA DE INTELIGENCIA COMERCIAL PARA EL MERCADO INDUSTRIAL EN URUGUAY.
+    ERES UN ANALISTA SUPER SENIOR DE INTELIGENCIA DE MERCADO URUGUAYO. HOY DEBES BUSCAR TODO LO QUE COMPITA CON LOS ARTICULOS QUE TE HE PROPORCIONADO.
     
-    OBJETO DE ESTUDIO: "{desc_limpia}"
-    URL DE FICHA TÉCNICA: {url_ref}
+    PRODUCTO ORIGINAL: "{desc_limpia}"
+    URL DE REFERENCIA TÉCNICA: {url_ref}
 
-    METODOLOGÍA DE INVESTIGACIÓN DE CAMPO:
-    1. PRIORIDAD TÉCNICA: Analiza la descripción y extrae datos de la URL (medidas, composición, uso). No importa si la URL es de otro país, úsala para identificar el producto exacto.
-    2. BÚSQUEDA URUGUAY: Localiza productos de OTRAS MARCAS (Sika, 3M, Fischer, Bosch, Stanley, etc.) disponibles en Uruguay.
-    3. CADENA DE VALOR: Identifica quién es el Importador y quién el Distribuidor (si es el mismo, repite el nombre).
-    4. POSICIONAMIENTO: Clasifica la Calidad Percibida en: 'Premium', 'Media' o 'Económica'.
+    TU MISIÓN (CRÍTICA):
+    1. IDENTIFICACIÓN TÉCNICA PROFUNDA: Analiza la URL y la Descripción. Identifica la naturaleza exacta del producto (químico, abrasivo, fijación, etc.). 
+       IMPORTANTE: No te dejes guiar por códigos internos; la URL es la fuente de verdad técnica.
+    
+    2. BÚSQUEDA DE COMPETIDORES EN URUGUAY: Localiza en proveedores locales (Mercado Libre UY, Ingco, Salvador Livio, Pampin, Sodimac, Orofino, etc.) 
+       productos de OTRAS MARCAS que realicen la MISMA FUNCIÓN TÉCNICA.
+    
+    3. CADENA DE VALOR: Identifica el Importador y el Distribuidor/Punto de Venta en Uruguay.
+    
+    4. POSICIONAMIENTO DE MERCADO: Clasifica la 'Calidad Percibida' en tres niveles: 'Premium' (Líderes), 'Media' (Profesional estándar) o 'Económica' (Bajo costo).
 
     Responde ESTRICTAMENTE en este formato JSON:
     {{
-        "comp": "Marca y Modelo Competidor",
-        "marca": "Marca",
-        "presentacion": "Unidad de empaque (ej. 310ml, Pack x100)",
+        "comp": "Nombre completo del producto competidor",
+        "marca": "Marca del competidor",
+        "presentacion": "Unidad de empaque/medida (ej. 310ml, Pack x100)",
         "precio": 0.0,
         "moneda": "USD/UYU",
-        "importador": "Nombre del Importador en Uruguay",
-        "distribuidor": "Punto de venta / Distribuidor",
+        "importador": "Importador legal en Uruguay",
+        "distribuidor": "Punto de venta / Distribuidor local",
         "calidad": "Premium / Media / Económica",
         "link": "URL del hallazgo en Uruguay",
-        "analisis_vs": "Diferencia técnica clave con el original"
+        "analisis_tecnico": "Comparativa de rendimiento vs original"
     }}
     """
 
-    # --- MOTOR PRINCIPAL: GEMINI 2.0 (Con Búsqueda de Google) ---
+    # --- MOTOR PRINCIPAL: GEMINI 2.0 (Con Búsqueda de Google Activa) ---
     if "GOOGLE_API_KEY" in st.secrets:
         try:
             client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
+            # Herramienta de búsqueda para obtener precios reales y proveedores en Uruguay
             search_tool = types.Tool(google_search=types.GoogleSearch())
             
             response = client.models.generate_content(
@@ -57,7 +63,7 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
         except Exception:
             pass
 
-    # --- RESPALDO: GROQ (Si Gemini falla o se satura) ---
+    # --- RESPALDO: GROQ (Si Gemini falla o alcanza límites de cuota) ---
     if "GROQ_API_KEY" in st.secrets:
         try:
             client_groq = Groq(api_key=st.secrets["GROQ_API_KEY"])
@@ -77,7 +83,7 @@ def procesar_lote_industrial(df):
     status_text = st.empty()
     progreso = st.progress(0)
     
-    # Identificación de columnas (No dependemos del Código)
+    # Identificación de columnas dinámicas
     col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción'] if c in df.columns), df.columns[0])
     col_url = next((c for c in ['URL (Opcional pero recomendada)', 'URL', 'Link'] if c in df.columns), None)
 
@@ -87,7 +93,7 @@ def procesar_lote_industrial(df):
         progreso.progress(pct)
         
         desc_actual = str(row[col_desc])
-        # Procesamos aunque el código sea "None" o vacío
+        # Procesamos todo lo que tenga descripción, sin importar si el código es "None"
         if pd.notna(row[col_desc]) and desc_actual.lower() != 'none':
             status_text.info(f"🕵️ Investigando Mercado UY: {desc_actual[:35]}...")
             
@@ -106,10 +112,11 @@ def procesar_lote_industrial(df):
                     "Distribuidor": datos.get('distribuidor'),
                     "Calidad": datos.get('calidad'),
                     "Link": datos.get('link'),
-                    "Análisis": datos.get('analisis_vs')
+                    "Análisis Técnico": datos.get('analisis_tecnico')
                 })
             
-            time.sleep(1.5) # Pausa técnica para estabilidad
+            # Pausa de seguridad para respetar las cuotas de búsqueda de Google
+            time.sleep(2)
             
     status_text.empty()
     progreso.empty()
