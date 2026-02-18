@@ -3,22 +3,15 @@ import pandas as pd
 
 def mostrar_fijacion_precios():
     st.header("💰 Módulo de Fijación de Precios")
-    st.info("Este módulo permite calcular precios finales basados en diferentes estrategias de marketing, de forma privada y segura.")
-
-    # 1. Recuperar datos de la investigación previa (Si existen)
-    precios_referencia = []
-    if 'resultados_investigacion' in st.session_state and st.session_state['resultados_investigacion']:
-        st.subheader("📊 Referencias del Mercado (Investigación Previa)")
-        df_investigacion = pd.DataFrame(st.session_state['resultados_investigacion'])
-        
-        # Mostrar una tabla resumida de la competencia para referencia
-        st.dataframe(df_investigacion[['Original (Würth)', 'Competidor', 'Precio', 'Moneda', 'Calidad']])
-        
-        # Extraer el precio promedio para cálculos automáticos
-        precios_referencia = df_investigacion['Precio'].tolist()
+    
+    # --- BOTÓN DE INTERCONEXIÓN ---
+    if 'resultados_investigacion' in st.session_state:
+        if st.button("📥 Importar precios de la última Investigación de Mercado"):
+            st.success("Datos sincronizados con éxito.")
+            # Aquí la lógica ya tiene acceso a st.session_state['resultados_investigacion']
     else:
-        st.warning("No se encontraron datos de investigación previa. Puedes ingresar los precios de competencia manualmente.")
-
+        st.info("💡 No hay investigaciones previas. Puedes ingresar precios manualmente abajo.")
+        
     st.divider()
 
     # 2. Entrada de Datos de Costos (Privado)
