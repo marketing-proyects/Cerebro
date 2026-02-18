@@ -16,7 +16,7 @@ def mostrar_investigacion():
         if st.button("INICIAR INVESTIGACIÓN ESTRATÉGICA"):
             with st.status("🕵️ Investigando con Multi-IA...", expanded=True) as status:
                 resultados = procesar_lote_industrial(df)
-                # Guardamos en dos lugares: uno para la vista actual y otro para el puente con Precios
+                # Sincronizamos con la sesión para el módulo de Precios
                 st.session_state['ultimos_resultados'] = resultados
                 st.session_state['resultados_investigacion'] = resultados 
                 status.update(label="✅ Análisis Completo", state="complete", expanded=False)
