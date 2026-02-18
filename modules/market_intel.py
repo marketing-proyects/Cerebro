@@ -13,14 +13,14 @@ def mostrar_investigacion():
         st.write(f"### 🔍 Vista previa ({len(df)} artículos)")
         st.dataframe(df, use_container_width=True, height=300)
         
-        # Usamos session_state para que los resultados no desaparezcan
         if st.button("INICIAR INVESTIGACIÓN ESTRATÉGICA"):
             with st.status("🕵️ Investigando con Multi-IA...", expanded=True) as status:
                 resultados = procesar_lote_industrial(df)
+                # Guardamos en dos lugares: uno para la vista actual y otro para el puente con Precios
                 st.session_state['ultimos_resultados'] = resultados
+                st.session_state['resultados_investigacion'] = resultados 
                 status.update(label="✅ Análisis Completo", state="complete", expanded=False)
 
-        # Si hay resultados en memoria, los mostramos
         if 'ultimos_resultados' in st.session_state and st.session_state['ultimos_resultados']:
             df_res = pd.DataFrame(st.session_state['ultimos_resultados'])
             
