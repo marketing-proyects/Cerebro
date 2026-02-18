@@ -8,24 +8,29 @@ def mostrar_fijacion_precios():
     precios_referencia = []
     nombres_para_reporte = []
     
-    # 1. Sincronizar productos (Interfaz de Tabla Espejo del Excel)
+    # 1. Sincronizar productos (Interfaz de Tabla Independiente)
     if 'resultados_investigacion' in st.session_state:
         with st.expander("📥 Sincronizar productos", expanded=True):
-            df_invest = pd.DataFrame(st.session_state['resultados_investigacion'])
+            # Cargamos los datos y aseguramos que todo sea tratado como texto desde el inicio
+            df_invest = pd.DataFrame(st.session_state['resultados_investigacion']).astype(str)
             
-            # --- LIMPIEZA DE COLUMNAS ---
-            # Creamos un DataFrame que solo tenga lo que tú necesitas ver
-            # 'CODIGO' y 'DESCRIPCION CORTA' (o sus equivalentes en el DF procesado)
+            # --- LIMPIEZA Y SEPARACIÓN DE COLUMNAS ---
             df_visual = pd.DataFrame()
             
-            # Intentamos detectar las columnas originales
-            df_visual['Código'] = df_invest['Original (Würth)'].astype(str).str.split().str[0]
-            # Tomamos el resto como descripción, ignorando saltos de línea de la IA
-            df_visual['Descripción'] = df_invest['Original (Würth)'].astype(str).str.split(n=1).str[1].str.split('\n').str[0]
+            # Identificamos la columna origen (normalmente 'Original (Würth)')
+            col_id = 'Original (Würth)' if 'Original (Würth)' in df_invest.columns else df_invest.columns[0]
             
-            st.write("Selecciona las filas de los productos que deseas analizar:")
+            # Extraemos Código y Descripción de forma segura
+            # El código suele ser la primera palabra; la descripción el resto de la primera línea
+            df_visual['Código'] = df_invest[col_id].str.split().str[0]
+            df_visual['Descripción'] = df_invest[col_id].str.split(n=1).str[1].str.split('\n').str[0]
             
-            # Tabla interactiva con columnas independientes
+            # Limpiamos posibles valores vacíos que causaron el error anterior
+            df_visual = df_visual.fillna("Sin Datos")
+            
+            st.write("Selecciona los productos de tu Excel original para el análisis:")
+            
+            # Tabla interactiva con columnas separadas
             seleccion = st.dataframe(
                 df_visual.drop_duplicates(),
                 use_container_width=True,
@@ -38,35 +43,36 @@ def mostrar_fijacion_precios():
             
             if st.button("Confirmar Selección de Productos"):
                 if filas_indices:
-                    # Recuperamos los códigos de las filas marcadas
+                    # Obtenemos los códigos marcados
                     codigos_elegidos = df_visual.iloc[filas_indices]['Código'].tolist()
                     
-                    # Filtramos el origen para obtener los precios de esos códigos
-                    df_filtrado = df_invest[df_invest['Original (Würth)'].str.contains('|'.join(codigos_elegidos))]
+                    # Filtramos el origen usando los códigos seleccionados
+                    df_filtrado = df_invest[df_invest[col_id].str.contains('|'.join(codigos_elegidos), na=False)]
                     
+                    # Buscamos la columna de precios minoristas (P. Minorista o Precio)
                     col_precio = next((c for c in ['P. Minorista', 'Precio', 'precio_minorista'] if c in df_filtrado.columns), None)
                     
                     if col_precio:
                         precios_ref = pd.to_numeric(df_filtrado[col_precio], errors='coerce').dropna().tolist()
                         st.session_state['precios_sincronizados'] = precios_ref
                         st.session_state['seleccion_nombres'] = df_visual.iloc[filas_indices]['Descripción'].tolist()
-                        st.success(f"✅ Sincronizados {len(precios_ref)} precios de la competencia.")
+                        st.success(f"✅ Sincronizados {len(precios_ref)} precios de competencia.")
                     else:
-                        st.error("No se encontraron precios numéricos para esta selección.")
+                        st.error("No se detectaron precios válidos en la investigación.")
                 else:
-                    st.warning("Debe seleccionar al menos una fila de la tabla.")
+                    st.warning("Debe marcar las filas en la tabla para proceder.")
 
-    # Recuperar datos de la sesión para los cálculos
+    # Recuperar datos para cálculos
     if 'precios_sincronizados' in st.session_state:
         precios_referencia = st.session_state['precios_sincronizados']
         nombres_para_reporte = st.session_state.get('seleccion_nombres', [])
 
     st.divider()
 
-    # 2. Resumen de Competencia (Lo que ayuda a decidir)
+    # 2. Resumen de Competencia (Métricas para decidir margen)
     promedio_mkt = 0
     if precios_referencia:
-        st.subheader("📊 Referencia de Mercado")
+        st.subheader("📊 Indicadores de Mercado")
         m1, m2, m3 = st.columns(3)
         promedio_mkt = sum(precios_referencia) / len(precios_referencia)
         m1.metric("Promedio", f"{promedio_mkt:,.2f}")
@@ -74,7 +80,7 @@ def mostrar_fijacion_precios():
         m3.metric("Máximo", f"{max(precios_referencia):,.2f}")
         st.divider()
 
-    # 3. Costos y Estrategia
+    # 3. Estructura de Costos de Importación
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("📦 Costo de Importación")
@@ -89,7 +95,7 @@ def mostrar_fijacion_precios():
         estrategia = st.selectbox("Estrategia Kotler", ["Basado en costo", "Paridad de mercado", "Descreme", "Penetración"])
         iva = st.checkbox("IVA Uruguay (22%)", value=True)
 
-    # 4. Cálculo Final
+    # 4. Lógica de Cálculo
     precio_neto = 0.0
     if estrategia == "Basado en costo":
         precio_neto = costo_cif / (1 - (margen / 100)) if margen < 100 else costo_cif
@@ -124,4 +130,4 @@ def mostrar_fijacion_precios():
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df_resumen.to_excel(writer, index=False)
-        st.download_button("💾 Descargar", output.getvalue(), "Analisis_Wuerth.xlsx")
+        st.download_button("💾 Descargar Excel", output.getvalue(), "Analisis_Wuerth.xlsx")
