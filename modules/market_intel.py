@@ -10,20 +10,17 @@ def mostrar_investigacion():
     
     if archivo:
         df = pd.read_excel(archivo, dtype=str, engine='openpyxl')
-        st.write(f"### 🔍 Vista previa ({len(df)} artículos)")
-        st.dataframe(df, use_container_width=True, height=300)
         
         if st.button("INICIAR INVESTIGACIÓN ESTRATÉGICA"):
             with st.status("🕵️ Investigando con Multi-IA...", expanded=True) as status:
                 resultados = procesar_lote_industrial(df)
-                # Sincronizamos con la sesión para el módulo de Precios
-                st.session_state['ultimos_resultados'] = resultados
+                # Guardamos para el puente con el módulo de Precios
                 st.session_state['resultados_investigacion'] = resultados 
+                st.session_state['ultimos_resultados'] = resultados
                 status.update(label="✅ Análisis Completo", state="complete", expanded=False)
 
         if 'ultimos_resultados' in st.session_state and st.session_state['ultimos_resultados']:
             df_res = pd.DataFrame(st.session_state['ultimos_resultados'])
-            
             st.divider()
             st.write("### 📈 Resultados de la Competencia")
             st.dataframe(df_res, use_container_width=True)
