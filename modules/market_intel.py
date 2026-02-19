@@ -10,26 +10,28 @@ def mostrar_investigacion():
         st.markdown("<h1 style='margin:0'>📊 Investigación de Mercado</h1>", unsafe_allow_html=True)
     with col_r:
         if st.button("🧹 Limpiar Búsqueda", type="secondary", use_container_width=True):
-            # 1. Limpiamos la caché técnica (Obliga a la IA a buscar de nuevo)
+            # 1. Limpiamos la caché técnica
             st.cache_data.clear()
             
-            # 2. Borramos los datos y el ARCHIVO (Agregamos 'invest_v_final')
+            # 2. Borramos los datos y el ARCHIVO visual
             keys_to_reset = [
                 'resultados_investigacion', 
                 'ultimos_resultados', 
                 'df_mkt_actual', 
                 'precios_mkt', 
                 'nombres_seleccionados',
-                'invest_v_final'  # <-- Esta es la llave que borra el Excel visualmente
+                'invest_v_final'
             ]
             for key in keys_to_reset:
                 if key in st.session_state:
                     del st.session_state[key]
             
-            # Refrescamos la pantalla
             st.rerun()
 
     st.divider()
+    
+    # --- AVISO DE TIEMPO DE ENFRIAMIENTO PARA LA IA ---
+    st.info("⏱️ **Aviso de Sistema:** Para evitar bloqueos de seguridad por parte de las Inteligencias Artificiales, por favor **aguarde al menos 1 a 2 minutos** antes de iniciar un nuevo análisis de mercado.")
     
     archivo = st.file_uploader("Subir Inventario", type=['xlsx', 'xlsm'], key="invest_v_final")
     
