@@ -14,7 +14,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 if gestionar_login():
-    st.sidebar.title("INTELIGENCIA DE MARKETING Y MERCADO "CEREBRO")
+    st.sidebar.title('INTELIGENCIA DE MARKETING Y MERCADO "CEREBRO"')
     st.sidebar.write(f"Usuario: **{st.session_state.get('username', 'admin')}**")
     st.sidebar.divider()
     
