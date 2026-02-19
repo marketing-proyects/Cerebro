@@ -4,7 +4,7 @@ from io import BytesIO
 from modules.ai_engine import procesar_lote_industrial
 
 def mostrar_investigacion():
-    # Encabezado con título y botón de Limpieza Quirúrgica
+    # Encabezado con título y botón de Limpieza
     col_t, col_r = st.columns([3, 1])
     with col_t:
         st.markdown("<h1 style='margin:0'>📊 Investigación de Mercado</h1>", unsafe_allow_html=True)
@@ -31,7 +31,7 @@ def mostrar_investigacion():
     st.divider()
     
     # --- AVISO DE TIEMPO DE ENFRIAMIENTO PARA LA IA ---
-    st.info("⏱️ **Aviso de Sistema:** Para evitar bloqueos de seguridad por parte de las Inteligencias Artificiales, por favor **aguarde al menos 1 a 2 minutos** antes de iniciar un nuevo análisis de mercado.")
+    st.info("⏱️ **Aviso de Sistema:** Para evitar bloqueos de seguridad por parte de las Inteligencias Artificiales, por favor **AGUARDE AL MENOS 2 MINUTOS** antes de iniciar un nuevo análisis de mercado.")
     
     archivo = st.file_uploader("Subir Inventario", type=['xlsx', 'xlsm'], key="invest_v_final")
     
