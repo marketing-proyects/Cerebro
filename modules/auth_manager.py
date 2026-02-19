@@ -77,7 +77,7 @@ def gestionar_login():
         "admin": {"pass": "123", "permisos": ["Investigación de Mercado", "Fijación de Precios"]},
         "mkt_user": {"pass": "wurth2026", "permisos": ["Investigación de Mercado"]},
         "ventas_user": {"pass": "precios2026", "permisos": ["Fijación de Precios"]},
-        "prueba": {"pass": "123", "permisos": ["Investigación de Mercado"]}
+        "invitado": {"pass": "colega2026", "permisos": ["Investigación de Mercado"]}
     }
 
     if "autenticado" not in st.session_state:
@@ -87,7 +87,7 @@ def gestionar_login():
         # Inyectamos toda la visual (Fondo, Animación y Logo)
         inyectar_animacion()
         
-        # Título centrado (Se baja margen para que no choque con el logo)
+        # Título centrado (Bajamos el margen para que no choque con el logo)
         st.markdown("<h3 style='text-align: center; color: #333; margin-top: 120px; margin-bottom: 30px;'>ACCESO CEREBRO</h3>", unsafe_allow_html=True)
 
         with st.container():
