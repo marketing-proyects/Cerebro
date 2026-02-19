@@ -1,9 +1,8 @@
 import streamlit as st
-
 import os
 
 def inyectar_animacion():
-    # Animación solo para la primera vez en la sesión
+    # Solo mostrar la animación si es la primera vez en la sesión
     if 'animacion_mostrada' not in st.session_state:
         st.markdown("""
             <style>
@@ -73,11 +72,10 @@ def gestionar_login():
     if not st.session_state["autenticado"]:
         st.markdown("<style>.stApp { background-color: white !important; }</style>", unsafe_allow_html=True)
         
-        # 1. Llamado a la animación de fondo
+        # 1. Llamamos a la animación de fondo
         inyectar_animacion()
         
-        # 2. Logo a la derecha
-        # Usamos una columna muy ancha vacía y una pequeña a la derecha para el logo
+        # 2. Reubicación del Logo a la derecha
         col_vacia, col_logo = st.columns([5, 1])
         with col_logo:
             # Ruta absoluta para evitar errores en Streamlit Cloud
@@ -89,7 +87,7 @@ def gestionar_login():
                 st.markdown("<h2 style='color: #ED1C24; text-align: right; margin-top: 0;'>WÜRTH</h2>", unsafe_allow_html=True)
         
         # 3. Título centrado (independiente del logo)
-        st.markdown("<h3 style='text-align: center; color: #333; margin-top: -30px; margin-bottom: 20px;'>ACCESO A INVESTIGADOR AL SISTEMA</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; color: #333; margin-top: -30px; margin-bottom: 20px;'>ACCESO CEREBRO</h3>", unsafe_allow_html=True)
 
         # 4. Formulario de Login original
         with st.container():
@@ -97,4 +95,14 @@ def gestionar_login():
             with center:
                 with st.form("login_form_final"):
                     user = st.text_input("Usuario")
-                    password = st.text_input("Contraseña", type="password
+                    password = st.text_input("Contraseña", type="password")
+                    if st.form_submit_button("INGRESAR AL SISTEMA"):
+                        if user in USUARIOS and USUARIOS[user]["pass"] == password:
+                            st.session_state["autenticado"] = True
+                            st.session_state["username"] = user
+                            st.session_state["permisos"] = USUARIOS[user]["permisos"]
+                            st.rerun()
+                        else:
+                            st.error("Credenciales incorrectas")
+        return False
+    return True
