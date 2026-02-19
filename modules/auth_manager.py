@@ -13,7 +13,7 @@ def inyectar_animacion():
                 z-index: 0; 
                 background: #ffffff;
                 /* Desaparece a los 5 segundos exactos */
-                animation: fadeOutBackground 1.5s ease-in-out 3.5s forwards;
+                animation: fadeOutBackground 5s ease-in-out 7.5s forwards;
                 pointer-events: none; /* Evita que bloquee los clics en el formulario */
             }
             
