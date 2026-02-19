@@ -1,75 +1,76 @@
 import streamlit as st
 import os
+import base64
+
+def get_image_base64(path):
+    """Convierte el logo JPG a base64 para inyectarlo sin depender de URLs externas."""
+    if os.path.exists(path):
+        with open(path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    return None
 
 def inyectar_animacion():
-    # Inyectamos el fondo, las neuronas y el logo vía CSS puro para máximo control
-    st.markdown("""
+    # 1. Carga del logo JPG local
+    logo_path = os.path.join(os.getcwd(), "logo_wurth.jpg")
+    img_base64 = get_image_base64(logo_path)
+    
+    # Preparación del estilo (si no hay imagen, ponemos texto por seguridad)
+    logo_content = f"url('data:image/jpeg;base64,{img_base64}')" if img_base64 else "none"
+
+    st.markdown(f"""
         <style>
-        /* --- FONDO BLANCO PERMANENTE --- */
-        #cerebro-bg {
+        /* --- ESTADO GENERAL --- */
+        .stApp {{ background: white !important; }}
+        
+        #cerebro-bg {{
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            z-index: -1;
+            z-index: 0;
             background: #ffffff;
             pointer-events: none;
-        }
+        }}
 
-        /* --- LOGO WÜRTH (JPG) POSICIONADO CON PRECISIÓN --- */
-        #logo-superior {
+        /* --- LOGO WÜRTH: AJUSTADO PARA NO QUEDAR TAPADO --- */
+        #logo-superior {{
             position: fixed;
-            top: 30px;    /* Margen desde el techo */
-            right: 30px;  /* Margen desde la derecha */
-            width: 180px;
-            height: auto;
-            z-index: 100;
-            content: url("https://raw.githubusercontent.com/marketing-proyects/Cerebro/main/logo_wurth.jpg");
-        }
+            top: 65px;    /* Aumentamos de 40px a 65px para esquivar la barra de Streamlit */
+            right: 40px; 
+            width: 170px;
+            height: 50px;
+            z-index: 9999; /* Máxima prioridad visual */
+            background-image: {logo_content};
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: right;
+        }}
 
-        /* --- NEURONAS NEÓN (ANIMACIÓN REFORZADA) --- */
-        .neuron {
+        /* --- NEURONAS ANIMADAS --- */
+        .neuron {{
             position: absolute;
             border-radius: 50%;
             background: #ffffff;
-            opacity: 0.5;
+            opacity: 0.6;
             animation: moveNeuron 20s infinite linear;
-        }
+        }}
 
-        /* Nodo Cian con Resplandor */
-        .n1 { 
-            width: 15px; height: 15px; top: 20%; left: 15%; 
-            box-shadow: 0 0 15px 5px rgba(0, 212, 255, 0.7); 
-        }
-        /* Nodo Rojo (Würth Style) con Resplandor */
-        .n2 { 
-            width: 12px; height: 12px; top: 50%; left: 80%; 
-            box-shadow: 0 0 15px 5px rgba(237, 28, 36, 0.6);
-            animation-duration: 25s;
-        }
-        /* Nodo Cian Grande */
-        .n3 { 
-            width: 20px; height: 20px; top: 80%; left: 30%; 
-            box-shadow: 0 0 20px 8px rgba(0, 212, 255, 0.4);
-            animation-duration: 30s;
-        }
+        .n1 {{ width: 15px; height: 15px; top: 20%; left: 15%; box-shadow: 0 0 15px 5px rgba(0, 212, 255, 0.7); }}
+        .n2 {{ width: 12px; height: 12px; top: 50%; left: 80%; box-shadow: 0 0 15px 5px rgba(237, 28, 36, 0.6); animation-duration: 25s; }}
+        .n3 {{ width: 20px; height: 20px; top: 80%; left: 30%; box-shadow: 0 0 20px 8px rgba(0, 212, 255, 0.4); animation-duration: 30s; }}
 
-        /* --- KEYFRAMES PARA MOVIMIENTO --- */
-        @keyframes moveNeuron {
-            0% { transform: translate(0, 0); }
-            33% { transform: translate(30px, 50px); }
-            66% { transform: translate(-20px, 20px); }
-            100% { transform: translate(0, 0); }
-        }
-
-        /* Forzar que el App de Streamlit sea transparente para ver el fondo */
-        .stApp { background: transparent !important; }
+        @keyframes moveNeuron {{
+            0% {{ transform: translate(0, 0); }}
+            33% {{ transform: translate(30px, 40px); }}
+            66% {{ transform: translate(-20px, 20px); }}
+            100% {{ transform: translate(0, 0); }}
+        }}
         </style>
 
         <div id="cerebro-bg">
+            <div id="logo-superior"></div>
             <div class="neuron n1"></div>
             <div class="neuron n2"></div>
             <div class="neuron n3"></div>
         </div>
-        <div id="logo-superior"></div>
     """, unsafe_allow_html=True)
 
 def gestionar_login():
@@ -84,11 +85,10 @@ def gestionar_login():
         st.session_state["autenticado"] = False
 
     if not st.session_state["autenticado"]:
-        # Inyectamos toda la visual (Fondo, Animación y Logo)
         inyectar_animacion()
         
-        # Título centrado (Bajamos el margen para que no choque con el logo)
-        st.markdown("<h3 style='text-align: center; color: #333; margin-top: 120px; margin-bottom: 30px;'>ACCESO CEREBRO</h3>", unsafe_allow_html=True)
+        # Bajamos un poco más el título para que haya armonía visual con el logo bajado
+        st.markdown("<h3 style='text-align: center; color: #333; margin-top: 160px; margin-bottom: 30px;'>ACCESO CEREBRO</h3>", unsafe_allow_html=True)
 
         with st.container():
             _, center, _ = st.columns([1, 2, 1])
