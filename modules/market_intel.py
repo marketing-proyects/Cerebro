@@ -4,14 +4,26 @@ from io import BytesIO
 from modules.ai_engine import procesar_lote_industrial
 
 def mostrar_investigacion():
-    # Encabezado con título y botón de refresco minimalista a la derecha
+    # Encabezado con título y botón de refresco alineado a la derecha
     col_t, col_r = st.columns([3, 1])
     with col_t:
         st.markdown("<h1 style='margin:0'>📊 Investigación de Mercado</h1>", unsafe_allow_html=True)
     with col_r:
-        # Botón discreto que solo reinicia la página
+        # Botón que limpia DATOS pero NO la sesión de usuario
         if st.button("🔄 Nueva Investigación", type="secondary"):
-            st.session_state.clear() # Limpia todo para empezar de cero absoluto
+            # Definimos solo las variables de datos para borrar
+            keys_to_reset = [
+                'resultados_investigacion', 
+                'ultimos_resultados', 
+                'df_mkt_actual', 
+                'precios_mkt', 
+                'nombres_seleccionados'
+            ]
+            for key in keys_to_reset:
+                if key in st.session_state:
+                    del st.session_state[key]
+            
+            # Refrescamos la página sin cerrar sesión
             st.rerun()
 
     st.divider()
@@ -26,13 +38,13 @@ def mostrar_investigacion():
                 # Ejecución de la IA
                 resultados = procesar_lote_industrial(df)
                 
-                # PERSISTENCIA: Guardamos en las dos variables que usan los módulos
+                # Guardamos los resultados en la sesión
                 st.session_state['resultados_investigacion'] = resultados 
                 st.session_state['ultimos_resultados'] = resultados
                 
                 status.update(label="✅ Análisis Completo", state="complete", expanded=False)
 
-        # VISUALIZACIÓN: Si hay resultados en la sesión, se muestran sí o sí
+        # Visualización de resultados (El preview que ya recuperamos)
         if 'ultimos_resultados' in st.session_state and st.session_state['ultimos_resultados']:
             df_res = pd.DataFrame(st.session_state['ultimos_resultados'])
             
@@ -40,7 +52,6 @@ def mostrar_investigacion():
             st.write("### 📈 Resultados de la Competencia")
             st.dataframe(df_res, use_container_width=True)
             
-            # Preparación de la descarga
             output = BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 df_res.to_excel(writer, index=False)
