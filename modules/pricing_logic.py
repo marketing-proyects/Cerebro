@@ -6,12 +6,12 @@ from io import BytesIO
 def mostrar_fijacion_precios():
     st.header("💰 Módulo de Fijación de Precios")
     
-    # 1. Selección de Productos (Columnas Independientes)
+    # 1. Selección de Productos (Mapeo Inteligente)
     if 'resultados_investigacion' in st.session_state:
         with st.expander("📥 Selección de Productos", expanded=True):
             df_invest = pd.DataFrame(st.session_state['resultados_investigacion'])
             
-            # Limpieza para mostrar Código y Descripción por separado
+            # Limpieza de Código y Descripción
             df_visual = pd.DataFrame()
             df_visual['Código'] = df_invest['Original (Würth)'].astype(str).apply(lambda x: x.split()[0] if x else "")
             df_visual['Descripción'] = df_invest['Original (Würth)'].astype(str).apply(lambda x: x.split(maxsplit=1)[1].split('\n')[0] if len(x.split()) > 1 else "Sin Descripción")
@@ -30,14 +30,14 @@ def mostrar_fijacion_precios():
 
     df_mkt = st.session_state.get('df_mkt_actual', pd.DataFrame())
     
-    # Inicialización de variables para evitar UnboundLocalError
-    estrategia_sug = "Basado en Costo"
+    # Inicialización de variables de control
+    estrategia_sug = "Análisis en curso..."
     p_final_con_iva = 0.0
     es_contra_premium = False
     
     st.divider()
 
-    # 2. Variables Comerciales Reactivas
+    # 2. Entradas del Usuario (Reactividad Instantánea)
     col_c, col_e = st.columns(2)
     with col_c:
         st.subheader("📦 Costo de Importación")
@@ -51,74 +51,96 @@ def mostrar_fijacion_precios():
         margen_objetivo = st.slider("Margen de Utilidad Deseado (%)", 0, 100, 35)
         iva = st.checkbox("Incluir IVA Uruguay (22%)", value=True)
 
-    precio_base_neto = c_cif / (1 - (margen_objetivo / 100)) if margen_objetivo < 100 else c_cif
+    # Cálculo base
+    precio_propuesto_neto = c_cif / (1 - (margen_objetivo / 100)) if margen_objetivo < 100 else c_cif
 
-    # 3. Motor de Decisión Dinámico (Basado en Calidad IA)
+    # 3. Motor de Posicionamiento Dinámico
     if not df_mkt.empty:
         precios_ref = pd.to_numeric(df_mkt['P. Minorista'], errors='coerce').dropna().tolist()
         if precios_ref:
             promedio_mkt = sum(precios_ref) / len(precios_ref)
             
-            # Inteligencia Contextual: Detecta si hay marcas Premium en la investigación
+            # Detección de nivel de competencia (Calidad asignada por la IA)
             es_contra_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False))
-            dif_vs_mkt = ((precio_base_neto / promedio_mkt) - 1) * 100
+            dif_vs_mkt = ((precio_propuesto_neto / promedio_mkt) - 1) * 100
 
             if es_contra_premium:
                 estrategia_sug = "Paridad Competitiva"
-                precio_base_neto = promedio_mkt
-            elif dif_vs_mkt > 15: estrategia_sug = "Descreme"
-            elif dif_vs_mkt < -15: estrategia_sug = "Penetración"
+                # Si el usuario quiere paridad, el sistema sugiere el promedio
+                # Pero le permite al usuario "moverse" con el slider para ver el impacto
+            elif dif_vs_mkt > 15: estrategia_sug = "Descreme (Premium)"
+            elif dif_vs_mkt < -15: estrategia_sug = "Penetración de Mercado"
+            else: estrategia_sug = "Paridad de Mercado"
 
-    p_final_con_iva = precio_base_neto * 1.22 if iva else precio_base_neto
+    p_final_con_iva = precio_propuesto_neto * 1.22 if iva else precio_propuesto_neto
 
-    # 4. GRÁFICO DE DISPERSIÓN (Visualización Estratégica)
+    # 4. MAPA DE POSICIONAMIENTO ESTILO "DASHBOARD"
     if not df_mkt.empty and not df_mkt['P. Minorista'].isnull().all():
-        st.subheader(f"🏁 Análisis Estratégico: {estrategia_sug}")
+        st.subheader(f"📊 Mapa de Posicionamiento: {estrategia_sug}")
         
+        # Preparación de datos para la nube
         df_scatter = df_mkt[['Competidor', 'P. Minorista']].copy()
         df_scatter.columns = ['Vendedor', 'Precio']
         df_scatter['Precio'] = pd.to_numeric(df_scatter['Precio'], errors='coerce')
-        df_scatter['Entidad'] = 'Competencia'
+        df_scatter['Origen'] = 'Competencia'
         
-        # PROPUESTA WÜRTH en ROJO y con mayor tamaño
-        prop_row = pd.DataFrame({'Vendedor': ['PROPUESTA WÜRTH'], 'Precio': [precio_base_neto], 'Entidad': ['Würth']})
+        # Añadir Würth como la entidad dominante
+        prop_row = pd.DataFrame({'Vendedor': ['WÜRTH (Propuesta)'], 'Precio': [precio_propuesto_neto], 'Origen': ['Würth']})
         df_scatter = pd.concat([df_scatter, prop_row], ignore_index=True)
 
+        # Creación del gráfico con Plotly Express
         fig = px.scatter(
-            df_scatter, x="Precio", y="Vendedor", color="Entidad",
-            color_discrete_map={'Competencia': '#1f77b4', 'Würth': '#FF0000'},
-            size=df_scatter['Entidad'].map({'Competencia': 10, 'Würth': 25}),
-            title="Mapa de Posicionamiento: Würth vs Mercado"
+            df_scatter, 
+            x="Precio", 
+            y="Vendedor", 
+            color="Origen",
+            size=df_scatter['Origen'].map({'Competencia': 12, 'Würth': 35}), # Burbuja de Würth mucho más grande
+            color_discrete_map={'Competencia': '#3498db', 'Würth': '#e74c3c'}, # Azul vs Rojo intenso
+            hover_name="Vendedor",
+            template="plotly_white"
+        )
+
+        # Líneas de referencia (Suelo, Techo, Medio)
+        fig.add_vline(x=min(precios_ref), line_dash="dash", line_color="#95a5a6", 
+                     annotation_text="Suelo Competencia", annotation_position="top left")
+        fig.add_vline(x=max(precios_ref), line_dash="dash", line_color="#95a5a6", 
+                     annotation_text="Techo Competencia", annotation_position="top right")
+        fig.add_vline(x=promedio_mkt, line_width=2, line_color="#2ecc71", 
+                     annotation_text="Precio Medio Mercado", annotation_position="bottom right")
+
+        # Ajustes estéticos finales
+        fig.update_layout(
+            xaxis_title="Precio Unitario (USD)",
+            yaxis_title="Vendedores / Competidores",
+            showlegend=False,
+            height=500,
+            margin=dict(l=20, r=20, t=40, b=20)
         )
         
-        # Líneas de referencia
-        fig.add_vline(x=min(precios_ref), line_dash="dash", line_color="gray", annotation_text="Suelo")
-        fig.add_vline(x=max(precios_ref), line_dash="dash", line_color="gray", annotation_text="Techo")
-        fig.add_vline(x=promedio_mkt, line_dash="dot", line_color="green", annotation_text="Medio")
-        
-        fig.update_layout(showlegend=False, height=450)
         st.plotly_chart(fig, use_container_width=True)
 
-        # Sugerencia del Asesor
-        if es_contra_premium:
-            st.info(f"**Se sugiere {estrategia_sug}.** Dado que compites contra marcas líderes detectadas, Würth debe alinearse a estos valores.")
-        else:
-            st.info(f"**Se sugiere {estrategia_sug}.** Puedes capitalizar el valor de marca superior de Würth frente a los competidores estándar.")
+        # Bloque de análisis del "Cerebro"
+        with st.container():
+            st.info(f"💡 **Veredicto Estratégico:** {estrategia_sug}")
+            if es_contra_premium:
+                st.write("Se ha detectado competencia de **Alto Desempeño**. Su precio propuesto se mantiene en el rango de marcas líderes, asegurando el posicionamiento Premium de Würth.")
+            else:
+                st.write("Frente a competidores de segmento estándar, Würth mantiene una ventaja competitiva basada en calidad percibida.")
 
-    # 5. Resultados Finales
+    # 5. RESULTADOS FINALES (KPIs)
     st.divider()
-    r1, r2, r3 = st.columns(3)
-    r1.metric("Costo CIF", f"{c_cif:,.2f}")
-    r2.metric("PVP Final", f"{p_final_con_iva:,.2f}")
-    m_real = ((precio_base_neto - c_cif) / precio_base_neto * 100) if precio_base_neto > 0 else 0
-    r3.metric("Margen Real", f"{m_real:.1f}%")
+    res1, res2, res3 = st.columns(3)
+    res1.metric("Costo CIF Final", f"{c_cif:,.2f}")
+    res2.metric("PVP Final Sugerido", f"{p_final_con_iva:,.2f}")
+    m_real = ((precio_propuesto_neto - c_cif) / precio_propuesto_neto * 100) if precio_propuesto_neto > 0 else 0
+    res3.metric("Margen Real Bruto", f"{m_real:.1f}%")
 
-    if st.button("📥 Exportar Análisis"):
+    if st.button("📥 Exportar Análisis Estratégico"):
         output = BytesIO()
         df_res = pd.DataFrame({
-            "Parámetro": ["Productos", "CIF", "PVP Final", "Margen %", "Estrategia"],
-            "Valor": [", ".join(st.session_state.get('nombres_seleccionados', [])), c_cif, p_final_con_iva, f"{m_real:.1f}%", estrategia_sug]
+            "Métrica": ["Productos Analizados", "Costo CIF", "Precio Propuesto (Neto)", "PVP Final (IVA)", "Margen Final %", "Estrategia Aplicada"],
+            "Valor": [", ".join(st.session_state.get('nombres_seleccionados', [])), f"{c_cif:.2f}", f"{precio_propuesto_neto:.2f}", f"{p_final_con_iva:.2f}", f"{m_real:.1f}%", estrategia_sug]
         })
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df_res.to_excel(writer, index=False)
-        st.download_button("💾 Bajar Excel", output.getvalue(), "Estrategia_Wuerth.xlsx")
+        st.download_button("💾 Descargar Reporte en Excel", output.getvalue(), "Estrategia_Precios_Wuerth.xlsx")
