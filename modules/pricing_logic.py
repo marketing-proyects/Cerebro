@@ -60,36 +60,39 @@ def mostrar_fijacion_precios():
         aplicar_iva = st.checkbox("Incluir IVA Uruguay (22%)", value=True)
 
     # 3. MOTOR DE CÁLCULO DINÁMICO
-    divisor = (1 - (margen / 100)) if margen < 100 else 0.0001
-    
     if estrategia_manual == "Basado en costo" or not precios_ref:
+        divisor = (1 - (margen / 100)) if margen < 100 else 0.0001
         precio_neto = c_cif / divisor
     elif estrategia_manual == "Paridad de mercado":
         precio_neto = promedio_mkt
     elif estrategia_manual == "Descreme":
-        precio_neto = max(precios_ref) * 1.10 if precios_ref else c_cif / divisor
+        precio_neto = max(precios_ref) * 1.10 if precios_ref else c_cif
     elif estrategia_manual == "Penetración":
-        precio_neto = min(precios_ref) * 0.90 if precios_ref else c_cif / divisor
+        precio_neto = min(precios_ref) * 0.90 if precios_ref else c_cif
 
-    # Lógica de IVA
-    precio_final_total = precio_neto * 1.22 if aplicar_iva else precio_neto
+    # --- LÓGICA DE IVA ---
+    if aplicar_iva:
+        precio_final_con_impuestos = precio_neto * 1.22
+    else:
+        precio_final_con_impuestos = precio_neto
 
     # 4. ESTRATEGIA SUGERIDA POR EL SISTEMA
     if not df_mkt.empty and precios_ref:
         st.subheader("🧠 Análisis del Sistema")
         es_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False))
+        nombres_rivales = df_mkt['Competidor'].unique().tolist()
         
         if es_premium:
-            st.success("**Estrategia de fijación de precio sugerida: Paridad Competitiva (Segmento Premium)**")
-            st.info("Se recomienda esta estrategia debido a la presencia de marcas líderes. Würth debe posicionarse igualando el precio de referencia.")
+            st.success(f"**Estrategia de fijación de precio sugerida: Paridad Competitiva (Segmento Premium)**")
+            st.info(f"Se recomienda esta estrategia debido a la presencia de marcas líderes como {', '.join(nombres_rivales[:2])}...")
         elif (c_cif / promedio_mkt) < 0.5:
-            st.warning("**Estrategia de fijación de precio sugerida: Penetración / Crecimiento Agresivo**")
-            st.info("Su costo de importación es bajo frente al mercado. Ventaja para ganar cuota rápidamente.")
+            st.warning(f"**Estrategia de fijación de precio sugerida: Penetración / Crecimiento Agresivo**")
+            st.info("Su costo de importación actual es significativamente bajo en comparación con el promedio...")
         else:
-            st.info("**Estrategia de fijación de precio sugerida: Descreme Controlado**")
-            st.info("Basado en la superioridad de marca de Würth, se sugiere un precio superior al promedio.")
+            st.info(f"**Estrategia de fijación de precio sugerida: Descreme Controlado**")
+            st.info("Basado en la superioridad de marca de Würth frente a los competidores estándar...")
 
-    # 5. GRÁFICO DE BARRAS
+    # 5. GRÁFICO DE BARRAS COMPARATIVO
     if precios_ref:
         st.subheader("🏁 Análisis Comparativo")
         chart_data = pd.DataFrame({
@@ -101,7 +104,18 @@ def mostrar_fijacion_precios():
     # 6. RESULTADOS FINALES
     st.divider()
     m_real = ((precio_neto - c_cif) / precio_neto * 100) if precio_neto > 0 else 0
+
     res1, res2, res3 = st.columns(3)
     res1.metric("Costo CIF Final", f"{c_cif:,.2f}")
-    res2.metric("PVP Final (Inc. IVA)" if aplicar_iva else "PVP Final (Neto)", f"{precio_final_total:,.2f}")
+    res2.metric("PVP Final (Inc. IVA)" if aplicar_iva else "PVP Final (Neto)", f"{precio_final_con_impuestos:,.2f}")
     res3.metric("Margen Real", f"{m_real:.1f}%")
+
+    if st.button("📥 Exportar Informe Final"):
+        output = BytesIO()
+        df_res = pd.DataFrame({
+            "Parámetro": ["Costo CIF", "Estrategia Simulada", "PVP Final", "IVA Aplicado", "Margen Real %"],
+            "Valor": [c_cif, estrategia_manual, precio_final_con_impuestos, "Sí (22%)" if aplicar_iva else "No", f"{m_real:.1f}%"]
+        })
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df_res.to_excel(writer, index=False)
+        st.download_button("💾 Guardar Reporte", output.getvalue(), "Estrategia_Wuerth.xlsx")
