@@ -5,15 +5,12 @@ from io import BytesIO
 def mostrar_fijacion_precios():
     st.header("💰 Módulo de Fijación de Precios")
     
-    # Inicialización de estados para reactividad
-    if 'precios_mkt' not in st.session_state: st.session_state['precios_mkt'] = []
-    
-    # 1. Selección de Productos (Respetando Columnas de Excel)
+    # 1. Selección de Productos
     if 'resultados_investigacion' in st.session_state:
         with st.expander("📥 Selección de Productos", expanded=True):
             df_invest = pd.DataFrame(st.session_state['resultados_investigacion'])
             
-            # Mostramos Código y Descripción de forma independiente
+            # Tabla limpia para selección
             df_visual = df_invest[['Original (Würth)', 'ADN Identificado']].drop_duplicates()
             df_visual.columns = ['Código / Producto', 'Descripción Corta']
 
@@ -36,7 +33,7 @@ def mostrar_fijacion_precios():
 
     st.divider()
 
-    # 2. Variables Comerciales (Inputs Reactivos)
+    # 2. Variables Comerciales
     col_c, col_e = st.columns(2)
     with col_c:
         st.subheader("📦 Costos de Importación")
@@ -50,11 +47,9 @@ def mostrar_fijacion_precios():
         margen_objetivo = st.slider("Margen de Utilidad (%)", 0, 100, 35)
         iva = st.checkbox("Incluir IVA Uruguay (22%)", value=True)
 
-    # 3. MOTOR DE DECISIÓN AUTOMÁTICO (Sustituye al menú desplegable)
-    # Calculamos primero el precio basado en el costo del usuario
+    # 3. Motor de Decisión Automático
     precio_base_neto = c_cif / (1 - (margen_objetivo / 100)) if margen_objetivo < 100 else c_cif
     
-    # Identificación de Tier de Competencia
     tier_premium = ["bosch", "makita", "dewalt", "milwaukee", "hilti", "stihl"]
     es_contra_premium = any(t in str(competidores).lower() for t in tier_premium)
     
@@ -63,37 +58,35 @@ def mostrar_fijacion_precios():
 
     if precios_ref:
         dif_vs_mkt = ((precio_base_neto / promedio_mkt) - 1) * 100
-        
         if es_contra_premium:
-            # Si hay marcas Pro, forzamos Paridad para no quedar fuera
             estrategia_detectada = "Paridad Competitiva"
             precio_estrategico_neto = promedio_mkt
         elif dif_vs_mkt > 15:
             estrategia_detectada = "Descreme"
-            # Mantenemos el precio alto por la calidad Würth
-            precio_estrategico_neto = precio_base_neto 
         elif dif_vs_mkt < -15:
-            estrategia_detectada = "Penetración (Liderazgo en Costo)"
-            precio_estrategico_neto = precio_base_neto
+            estrategia_detectada = "Penetración"
 
     precio_final = precio_estrategico_neto * 1.22 if iva else precio_estrategico_neto
 
-    # 4. Visualización de Posicionamiento
+    # 4. Visualización de Posicionamiento (Corrección del Error de Color)
     if precios_ref:
-        st.subheader(f"🏁 Análisis Estratégico: {estrategia_detectada}")
+        st.subheader(f"🏁 Estrategia Sugerida: {estrategia_detectada}")
         
-        # Gráfico con la propuesta destacada en rojo al final
+        # Para evitar el error, creamos columnas separadas. Streamlit colorea cada columna.
         chart_data = pd.DataFrame({
-            "Referencia": ["Suelo Competencia", "Medio Mercado", "Techo Competencia", "PROPUESTA WÜRTH"],
-            "Precio": [min(precios_ref), promedio_mkt, max(precios_ref), precio_estrategico_neto]
-        }).set_index("Referencia")
+            "Suelo Competencia": [min(precios_ref)],
+            "Medio Mercado": [promedio_mkt],
+            "Techo Competencia": [max(precios_ref)],
+            "PROPUESTA WÜRTH": [precio_estrategico_neto]
+        })
         
+        # Ahora sí: 4 columnas = 4 colores. Azul para competencia, Rojo para nosotros.
         st.bar_chart(chart_data, color=["#1f77b4", "#1f77b4", "#1f77b4", "#FF0000"])
 
-        # Explicación del "Por qué"
-        st.info(f"**Sugerencia del Cerebro:** Se aplica **{estrategia_detectada}**. " + 
-                (f"Al competir contra marcas como {', '.join(competidores[:2])}, el sistema prioriza el equilibrio de mercado." if es_contra_premium 
-                 else "Dada la estructura de costos y la calidad de marca, este es el posicionamiento óptimo para maximizar rentabilidad."))
+        # Sugerencia del Cerebro
+        st.info(f"**Análisis Estratégico:** Se sugiere **{estrategia_detectada}**. " + 
+                (f"Al detectar marcas líderes como {', '.join(competidores[:2])}, el sistema prioriza la paridad." if es_contra_premium 
+                 else "Este posicionamiento maximiza la rentabilidad respetando el valor premium de la marca."))
 
     # 5. Resultados y Exportación
     st.divider()
@@ -106,9 +99,9 @@ def mostrar_fijacion_precios():
     if st.button("📥 Exportar Análisis"):
         output = BytesIO()
         df_res = pd.DataFrame({
-            "Concepto": ["Productos", "Estrategia Detectada", "CIF", "PVP Final", "Margen Real"],
-            "Valor": [", ".join(st.session_state.get('nombres_seleccionados', [])), estrategia_detectada, c_cif, precio_final, f"{m_real:.1f}%"]
+            "Parámetro": ["Productos", "CIF", "Precio Final", "Margen %", "Estrategia"],
+            "Valor": [", ".join(st.session_state.get('nombres_seleccionados', [])), c_cif, precio_final, f"{m_real:.1f}%", estrategia_detectada]
         })
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df_res.to_excel(writer, index=False)
-        st.download_button("💾 Guardar Reporte", output.getvalue(), "Pricing_Wuerth_Auto.xlsx")
+        st.download_button("💾 Bajar Reporte", output.getvalue(), "Pricing_Wuerth_Final.xlsx")
