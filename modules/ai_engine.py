@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import json
+import re
 import time
 from google import genai
 from google.genai import types
@@ -8,13 +9,11 @@ from groq import Groq
 
 def ejecutar_analisis_ia(descripcion, url_ref=None):
     desc_limpia = str(descripcion).strip()
-    url_limpia = url_ref if url_ref and url_ref != "nan" else "No proporcionada (Busca por descripción del producto)"
     
     # NUEVO PROMPT: PROTOCOLO DE INTELIGENCIA COMPETITIVA & SEO SENIOR
     prompt = f"""
     Actúa como un Especialista en Inteligencia Competitiva y SEO Senior en Uruguay. 
-    Tu objetivo es realizar un mapeo exhaustivo del ecosistema competitivo.
-    URL de referencia: {url_limpia}
+    Tu objetivo es realizar un mapeo exhaustivo del ecosistema competitivo de la siguiente URL: {url_ref}
     Descripción base: "{desc_limpia}"
 
     PROTOCOLO DE ANÁLISIS (ESTRICTO):
@@ -58,17 +57,8 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
     }}
     """
 
-    # Función auxiliar para extraer JSON con seguridad
-    def extraer_json(texto):
-        try:
-            if "```json" in texto:
-                texto = texto.split("```json")[1].split("```")[0]
-            elif "{" in texto:
-                texto = texto[texto.find("{"):texto.rfind("}")+1]
-            return json.loads(texto)
-        except:
-            return None
-
+    error_api = ""
+    
     if "GOOGLE_API_KEY" in st.secrets:
         try:
             client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -80,10 +70,12 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
                 config=types.GenerateContentConfig(tools=[search_tool])
             )
             
-            resultado = extraer_json(response.text)
-            if resultado: return resultado
-        except Exception as e:
-            print(f"Error Gemini: {e}") # Ahora veremos el error en consola si falla
+            res_text = response.text
+            if "{" in res_text:
+                res_text = res_text[res_text.find("{"):res_text.rfind("}")+1]
+                return json.loads(res_text)
+        except Exception as e: 
+            error_api = f"Gemini Falló: {str(e)[:50]}"
 
     # Backup con Groq
     if "GROQ_API_KEY" in st.secrets:
@@ -94,10 +86,13 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"}
             )
-            resultado = extraer_json(completion.choices[0].message.content)
-            if resultado: return resultado
-        except Exception as e:
-            print(f"Error Groq: {e}")
+            return json.loads(completion.choices[0].message.content)
+        except Exception as e: 
+            error_api += f" | Groq Falló: {str(e)[:50]}"
+            
+    # Si ambas fallan, enviamos el aviso a la pantalla
+    if error_api:
+        st.toast(f"⏳ Límite de API alcanzado o error de conexión. Detalle: {error_api}", icon="⚠️")
 
     return None
 
@@ -106,9 +101,9 @@ def procesar_lote_industrial(df):
     status_text = st.empty()
     progreso = st.progress(0)
     
-    # Detección flexible de columnas
-    col_desc = next((c for c in df.columns if 'descrip' in c.lower()), df.columns[0])
-    col_url = next((c for c in df.columns if 'url' in c.lower() or 'link' in c.lower()), None)
+    # Tu lectura original (Restaurada)
+    col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción'] if c in df.columns), df.columns[0])
+    col_url = next((c for c in ['URL (Opcional pero recomendada)', 'URL', 'Link'] if c in df.columns), None)
 
     total = len(df)
     for index, row in df.iterrows():
@@ -118,7 +113,9 @@ def procesar_lote_industrial(df):
         desc_actual = str(row[col_desc])
         url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
         
-        # ELIMINADO EL 'if not url_val: continue' QUE SALTABA LOS PRODUCTOS
+        # Tu lógica de salto original (Restaurada)
+        if not url_val:
+            continue
 
         status_text.info(f"🚀 Mapeo Estratégico & ADN: {desc_actual[:30]}...")
         data_ia = ejecutar_analisis_ia(desc_actual, url_val)
@@ -141,10 +138,8 @@ def procesar_lote_industrial(df):
                     "Gap vs Würth": comp.get("analisis_gap"),
                     "Link": comp.get("url_evidencia")
                 })
-        else:
-            print(f"La IA no devolvió el formato esperado para: {desc_actual}")
         
-        time.sleep(5) # Pausa para navegación
+        time.sleep(5) # Pausa para navegación profunda de 3 competidores
             
     status_text.empty()
     progreso.empty()
