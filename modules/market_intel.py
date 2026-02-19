@@ -4,25 +4,11 @@ from io import BytesIO
 from modules.ai_engine import procesar_lote_industrial
 
 def mostrar_investigacion():
-    # Encabezado con Título y Botón alineado a la derecha
-    col_t, col_r = st.columns([3, 1])
-    with col_t:
-        st.markdown("<h1 style='margin:0'>📊 Investigación de Mercado</h1>", unsafe_allow_html=True)
-    with col_r:
-        # Botón pequeño que limpia datos de productos pero NO la sesión de usuario
-        if st.button("🔄 Nueva Investigación", type="secondary"):
-            keys_to_reset = [
-                'resultados_investigacion', 
-                'ultimos_resultados', 
-                'df_mkt_actual', 
-                'precios_mkt', 
-                'nombres_seleccionados'
-            ]
-            for key in keys_to_reset:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.rerun()
-
+    st.markdown("<h1>📊 Investigación de Mercado</h1>", unsafe_allow_html=True)
+    
+    # Mensaje informativo para el usuario en lugar del botón
+    st.info("💡 **Nota:** Para realizar una nueva búsqueda desde cero y limpiar los datos actuales, por favor refresque la página (F5).")
+    
     st.divider()
     
     archivo = st.file_uploader("Subir Inventario", type=['xlsx', 'xlsm'], key="invest_v_final")
@@ -33,7 +19,7 @@ def mostrar_investigacion():
         if st.button("INICIAR INVESTIGACIÓN ESTRATÉGICA"):
             with st.status("🕵️ Investigando con Multi-IA...", expanded=True) as status:
                 resultados = procesar_lote_industrial(df)
-                # Guardamos los resultados para que ambos módulos los vean
+                # Guardamos los resultados para el puente con el módulo de Precios
                 st.session_state['resultados_investigacion'] = resultados 
                 st.session_state['ultimos_resultados'] = resultados
                 status.update(label="✅ Análisis Completo", state="complete", expanded=False)
