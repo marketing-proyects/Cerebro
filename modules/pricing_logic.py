@@ -1,29 +1,19 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from io import BytesIO
 
 def mostrar_fijacion_precios():
     st.header("💰 Módulo de Fijación de Precios")
     
-    # --- BOTÓN DE REFRESCAR / NUEVA INVESTIGACIÓN ---
-    with st.sidebar:
-        st.divider()
-        if st.button("🔄 Nueva Investigación (Refrescar)", use_container_width=True, type="primary"):
-            # Limpiamos las variables de estado para permitir una carga limpia
-            for key in ['resultados_investigacion', 'df_mkt_actual', 'precios_mkt', 'nombres_seleccionados']:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.rerun()
-
-    # 1. VISOR DE RESULTADOS Y SELECCIÓN (Versión funcional original)
-    if 'resultados_investigacion' in st.session_state and st.session_state['resultados_investigacion']:
+    # 1. VISOR Y SELECCIÓN
+    if 'resultados_investigacion' in st.session_state:
         df_invest = pd.DataFrame(st.session_state['resultados_investigacion'])
         
         with st.expander("📊 Vista Previa de la Investigación", expanded=True):
             st.dataframe(df_invest, use_container_width=True, hide_index=True)
             
             st.subheader("📥 Selección de Productos")
-            # Volvemos a la búsqueda directa de columnas que funcionaba
             col_id = next((c for c in df_invest.columns if "Original" in c or "Würth" in c), df_invest.columns[0])
             
             df_sel = pd.DataFrame()
@@ -48,8 +38,6 @@ def mostrar_fijacion_precios():
                 st.session_state['df_mkt_actual'] = df_invest[mask]
                 st.session_state['precios_mkt'] = pd.to_numeric(df_invest[mask]['P. Minorista'], errors='coerce').dropna().tolist()
                 st.session_state['nombres_seleccionados'] = df_sel.iloc[indices]['Descripción'].tolist()
-    else:
-        st.info("ℹ️ Realiza una investigación de mercado para comenzar el análisis de precios.")
 
     precios_ref = st.session_state.get('precios_mkt', [])
     df_mkt = st.session_state.get('df_mkt_actual', pd.DataFrame())
@@ -72,36 +60,41 @@ def mostrar_fijacion_precios():
         estrategia_manual = st.selectbox("Simular Estrategia Kotler", ["Basado en costo", "Paridad de mercado", "Descreme", "Penetración"])
         aplicar_iva = st.checkbox("Incluir IVA Uruguay (22%)", value=True)
 
-    # 3. MOTOR DE CÁLCULO (Corrección margen 100%)
-    divisor = (1 - (margen / 100)) if margen < 100 else 0.0001
-    
+    # 3. MOTOR DE CÁLCULO DINÁMICO
     if estrategia_manual == "Basado en costo" or not precios_ref:
+        divisor = (1 - (margen / 100)) if margen < 100 else 0.0001
         precio_neto = c_cif / divisor
     elif estrategia_manual == "Paridad de mercado":
         precio_neto = promedio_mkt
     elif estrategia_manual == "Descreme":
-        precio_neto = max(precios_ref) * 1.10 if precios_ref else c_cif / divisor
+        precio_neto = max(precios_ref) * 1.10 if precios_ref else c_cif
     elif estrategia_manual == "Penetración":
-        precio_neto = min(precios_ref) * 0.90 if precios_ref else c_cif / divisor
+        precio_neto = min(precios_ref) * 0.90 if precios_ref else c_cif
 
-    precio_final_con_impuestos = precio_neto * 1.22 if aplicar_iva else precio_neto
+    # --- LÓGICA DE IVA CORREGIDA ---
+    # Calculamos el precio final sumando el 22% solo si el checkbox está activo
+    if aplicar_iva:
+        precio_final_con_impuestos = precio_neto * 1.22
+    else:
+        precio_final_con_impuestos = precio_neto
 
-    # 4. ESTRATEGIA DE FIJACIÓN DE PRECIO SUGERIDA
+    # 4. ESTRATEGIA SUGERIDA POR EL SISTEMA
     if not df_mkt.empty and precios_ref:
         st.subheader("🧠 Análisis del Sistema")
         es_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False))
+        nombres_rivales = df_mkt['Competidor'].unique().tolist()
         
         if es_premium:
-            st.success("**Estrategia de fijación de precio sugerida: Paridad Competitiva (Segmento Premium)**")
-            st.info("Se recomienda esta estrategia debido a la presencia de marcas líderes. Würth debe posicionarse igualando el precio de referencia para validar su calidad técnica superior.")
+            st.success(f"**Estrategia de fijación de precio sugerida: Paridad Competitiva (Segmento Premium)**")
+            st.info(f"Se recomienda esta estrategia debido a la presencia de marcas líderes como {', '.join(nombres_rivales[:2])}...")
         elif (c_cif / promedio_mkt) < 0.5:
-            st.warning("**Estrategia de fijación de precio sugerida: Penetración / Crecimiento Agresivo**")
-            st.info("Su costo de importación es bajo frente al mercado. Tiene una ventaja excepcional para ganar cuota rápidamente.")
+            st.warning(f"**Estrategia de fijación de precio sugerida: Penetración / Crecimiento Agresivo**")
+            st.info("Su costo de importación actual es significativamente bajo en comparación con el promedio...")
         else:
-            st.info("**Estrategia de fijación de precio sugerida: Descreme Controlado**")
-            st.info("Basado en la superioridad de marca de Würth, se sugiere un precio superior al promedio del mercado.")
+            st.info(f"**Estrategia de fijación de precio sugerida: Descreme Controlado**")
+            st.info("Basado en la superioridad de marca de Würth frente a los competidores estándar...")
 
-    # 5. GRÁFICO DE BARRAS (Como estaba solicitado)
+    # 5. GRÁFICO DE BARRAS COMPARATIVO
     if precios_ref:
         st.subheader("🏁 Análisis Comparativo")
         chart_data = pd.DataFrame({
@@ -113,7 +106,18 @@ def mostrar_fijacion_precios():
     # 6. RESULTADOS FINALES
     st.divider()
     m_real = ((precio_neto - c_cif) / precio_neto * 100) if precio_neto > 0 else 0
+
     res1, res2, res3 = st.columns(3)
     res1.metric("Costo CIF Final", f"{c_cif:,.2f}")
     res2.metric("PVP Final (Inc. IVA)" if aplicar_iva else "PVP Final (Neto)", f"{precio_final_con_impuestos:,.2f}")
     res3.metric("Margen Real", f"{m_real:.1f}%")
+
+    if st.button("📥 Exportar Informe Final"):
+        output = BytesIO()
+        df_res = pd.DataFrame({
+            "Parámetro": ["Costo CIF", "Estrategia Simulada", "PVP Final", "IVA Aplicado", "Margen Real %"],
+            "Valor": [c_cif, estrategia_manual, precio_final_con_impuestos, "Sí (22%)" if aplicar_iva else "No", f"{m_real:.1f}%"]
+        })
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df_res.to_excel(writer, index=False)
+        st.download_button("💾 Guardar Reporte", output.getvalue(), "Estrategia_Wuerth.xlsx")
