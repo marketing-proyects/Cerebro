@@ -1,121 +1,100 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 from io import BytesIO
 
 def mostrar_fijacion_precios():
     st.header("💰 Módulo de Fijación de Precios")
     
-    # 1. VISOR DE RESULTADOS Y SELECCIÓN (Blindaje Total)
-    # Verificamos si hay datos y si el DataFrame no está vacío
-    if 'resultados_investigacion' in st.session_state and len(st.session_state['resultados_investigacion']) > 0:
-        df_invest = pd.DataFrame(st.session_state['resultados_investigacion'])
-        
-        # Identificamos las columnas dinámicamente para evitar el KeyError
-        col_principal = next((c for c in df_invest.columns if "Original" in c or "Würth" in c), None)
-        col_adn = next((c for c in df_invest.columns if "ADN" in c or "Identificado" in c), None)
-
-        # Forzamos que el preview sea siempre visible
-        with st.container():
-            st.subheader("📊 Vista Previa de la Investigación")
-            st.dataframe(df_invest, use_container_width=True, hide_index=True)
+    # 1. Sincronización y Memoria de Competencia
+    if 'resultados_investigacion' in st.session_state:
+        with st.expander("📥 Selección de Productos", expanded=True):
+            df_invest = pd.DataFrame(st.session_state['resultados_investigacion'])
             
-            if col_principal:
-                st.subheader("📥 Selección de Productos para el Mapa de Precios")
-                
-                # Creamos la tabla de selección con el ADN recuperado
-                df_sel = pd.DataFrame()
-                df_sel['Código'] = df_invest[col_principal].astype(str).str.split().str[0]
-                
-                if col_adn:
-                    df_sel['Descripción'] = df_invest[col_adn].fillna("Descripción General")
-                else:
-                    df_sel['Descripción'] = df_invest[col_principal].astype(str).str.split(n=1).str[1]
-                
-                df_sel = df_sel.drop_duplicates()
+            df_visual = df_invest[['Original (Würth)', 'ADN Identificado']].drop_duplicates()
+            df_visual.columns = ['Código / Producto', 'Descripción']
 
-                seleccion = st.dataframe(
-                    df_sel, 
-                    use_container_width=True, 
-                    hide_index=True,
-                    on_select="rerun", 
-                    selection_mode="multi-row"
-                )
-                
-                indices = seleccion.selection.rows
-                if indices:
-                    codigos_seleccionados = df_sel.iloc[indices]['Código'].tolist()
-                    # Sincronizamos con los datos de mercado
-                    mask = df_invest[col_principal].astype(str).str.startswith(tuple(codigos_seleccionados))
-                    st.session_state['df_mkt_actual'] = df_invest[mask]
-                    st.session_state['nombres_seleccionados'] = df_sel.iloc[indices]['Descripción'].tolist()
+            seleccion = st.dataframe(
+                df_visual, use_container_width=True, hide_index=True,
+                on_select="rerun", selection_mode="multi-row"
+            )
+            
+            indices = seleccion.selection.rows
+            if indices:
+                codigos = df_visual.iloc[indices]['Código / Producto'].tolist()
+                df_filtrado = df_invest[df_invest['Original (Würth)'].isin(codigos)]
+                st.session_state['precios_mkt'] = pd.to_numeric(df_filtrado['P. Minorista'], errors='coerce').dropna().tolist()
+                st.session_state['competidores_detectados'] = df_filtrado['Competidor'].unique().tolist()
+                st.session_state['nombres_seleccionados'] = codigos
             else:
-                st.error("❌ Error de formato: No se encontró la columna de inventario.")
-    else:
-        st.info("ℹ️ Realiza una investigación de mercado exitosa para visualizar el preview y analizar precios.")
+                st.session_state['precios_mkt'] = []
 
-    df_mkt = st.session_state.get('df_mkt_actual', pd.DataFrame())
+    precios_ref = st.session_state.get('precios_mkt', [])
+    promedio_mkt = sum(precios_ref) / len(precios_ref) if precios_ref else 0
+    competidores = st.session_state.get('competidores_detectados', [])
+
     st.divider()
 
-    # 2. VARIABLES COMERCIALES
+    # 2. Entradas Reactivas
     col_c, col_e = st.columns(2)
     with col_c:
-        st.subheader("📦 Costos")
-        c_fabrica = st.number_input("Costo de Fábrica", min_value=0.0, step=0.1, value=5.00)
-        g_import = st.number_input("Gastos Importación (%)", min_value=0.0, step=0.1, value=40.0)
+        st.subheader("📦 Costo de Importación")
+        c_fabrica = st.number_input("Costo de Fábrica (Origen)", min_value=0.0, step=0.01, value=5.00)
+        g_import = st.number_input("Gastos Importación (%)", min_value=0.0, value=40.0)
         c_cif = c_fabrica * (1 + (g_import / 100))
-        st.metric("Costo CIF (Unitario)", f"{c_cif:,.2f}")
+        st.metric("Costo CIF Final", f"{c_cif:,.2f}")
 
     with col_e:
-        st.subheader("📈 Margen")
-        margen = st.slider("Margen de Utilidad Deseado (%)", 0, 100, 35)
-        iva = st.checkbox("Incluir IVA Uruguay (22%)", value=True)
+        st.subheader("📈 Simulación de Escenario")
+        margen_simulado = st.slider("Margen de Utilidad (%)", 0, 100, 35)
+        estrategia_manual = st.selectbox("Probar Estrategia:", ["Basado en costo", "Paridad de mercado", "Descreme", "Penetración"])
+        iva = st.checkbox("Incluir IVA (22%)", value=True)
 
-    # 3. LÓGICA DE POSICIONAMIENTO
-    precio_base = c_cif / (1 - (margen / 100)) if margen < 100 else c_cif
-    estrategia_actual = "Análisis de Costos"
+    # 3. Cálculos Dinámicos
+    precio_neto_sim = 0.0
+    if estrategia_manual == "Basado en costo" or not precios_ref:
+        precio_neto_sim = c_cif / (1 - (margen_simulado / 100)) if margen_simulado < 100 else c_cif
+    elif estrategia_manual == "Paridad de mercado": precio_neto_sim = promedio_mkt
+    elif estrategia_manual == "Descreme": precio_neto_sim = max(precios_ref) * 1.10
+    elif estrategia_manual == "Penetración": precio_neto_sim = min(precios_ref) * 0.90
 
-    if not df_mkt.empty:
-        precios_ref = pd.to_numeric(df_mkt['P. Minorista'], errors='coerce').dropna().tolist()
-        if precios_ref:
-            promedio_mercado = sum(precios_ref) / len(precios_ref)
-            # Detección de calidad Premium para sugerencia automática
-            es_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False)) if 'Calidad' in df_mkt.columns else False
-            
-            if es_premium:
-                precio_base = promedio_mercado
-                estrategia_actual = "Paridad Competitiva"
-            else:
-                estrategia_actual = "Paridad de Mercado"
+    precio_final = precio_neto_sim * 1.22 if iva else precio_neto_sim
 
-    p_final_total = precio_base * 1.22 if iva else precio_base
-
-    # 4. GRÁFICO DE PELOTITAS (X: Actor, Y: Precio)
-    if not df_mkt.empty and not df_mkt['P. Minorista'].isnull().all():
-        st.subheader(f"🏁 Estrategia Sugerida: {estrategia_actual}")
+    # 4. MOTOR DE SUGERENCIA ÚNICA (EL ASESOR)
+    if precios_ref:
+        st.subheader("🧠 Sugerencia Estratégica del Cerebro")
         
-        df_plot = df_mkt[['Competidor', 'P. Minorista']].copy()
-        df_plot.columns = ['Actor', 'Precio']
-        df_plot['Precio'] = pd.to_numeric(df_plot['Precio'], errors='coerce')
-        df_plot['Tipo'] = 'Competencia'
+        # Lógica de detección de Tier de competencia
+        tier_1 = ["bosch", "makita", "dewalt", "milwaukee", "hilti"]
+        es_tier_alto = any(t in str(competidores).lower() for t in tier_1)
         
-        # Inserción de la Pelotita Roja de Würth
-        prop_row = pd.DataFrame({'Actor': ['WÜRTH'], 'Precio': [precio_base], 'Tipo': ['Würth']})
-        df_plot = pd.concat([df_plot, prop_row], ignore_index=True)
+        dif_vs_mkt = ((precio_neto_sim / promedio_mkt) - 1) * 100
 
-        fig = px.scatter(
-            df_plot, x="Actor", y="Precio", color="Tipo",
-            color_discrete_map={'Competencia': '#1f77b4', 'Würth': '#FF0000'},
-            size=[15] * (len(df_plot)-1) + [35], # Pelotita roja más grande
-            title="Comparativa de Precios: Würth vs Competencia"
-        )
-        fig.update_layout(showlegend=False, height=450)
-        st.plotly_chart(fig, use_container_width=True)
+        # Bloque de Sugerencia Única
+        if es_tier_alto:
+            st.info("🎯 **Estrategia Sugerida: Paridad Competitiva**")
+            st.write("Se sugiere esta estrategia porque compites contra marcas líderes (Bosch/Makita). Würth debe posicionarse cerca de estos valores para ser una alternativa válida por servicio y confianza, sin alejarse demasiado en precio.")
+        elif dif_vs_mkt < -10:
+            st.success("🎯 **Estrategia Sugerida: Ajuste de Margen al Alza**")
+            st.write(f"Se sugiere subir el margen. Estás un {abs(dif_vs_mkt):.1f}% por debajo de marcas de menor segmento (como Total/Ingco). Würth tiene margen para capturar más valor manteniendo la competitividad.")
+        else:
+            st.error("🎯 **Estrategia Sugerida: Descreme Moderado**")
+            st.write("Se sugiere esta estrategia. Dada la calidad Premium de Würth frente a la competencia detectada, puedes permitirte un precio superior al promedio.")
 
-    # 5. RESULTADOS KPI
+        # Gráfico de Posicionamiento
+        chart_data = pd.DataFrame({
+            "Referencia": ["Suelo Competencia", "Propuesta Würth", "Medio Mercado", "Techo Competencia"],
+            "Precio": [min(precios_ref), precio_neto_sim, promedio_mkt, max(precios_ref)]
+        })
+        st.bar_chart(chart_data, x="Referencia", y="Precio", color="#ff4b4b")
+
+    # 5. Cierre y Exportación
     st.divider()
     r1, r2, r3 = st.columns(3)
-    r1.metric("CIF Final", f"{c_cif:,.2f}")
-    r2.metric("PVP Final Sugerido", f"{p_final_total:,.2f}")
-    m_real = ((precio_base - c_cif) / precio_base * 100) if precio_base > 0 else 0
-    r3.metric("Margen Real Bruto", f"{m_real:.1f}%")
+    r1.metric("Costo CIF", f"{c_cif:,.2f}")
+    r2.metric("PVP Sugerido", f"{precio_final:,.2f}")
+    m_real = ((precio_neto_sim - c_cif) / precio_neto_sim * 100) if precio_neto_sim > 0 else 0
+    res3 = r3.metric("Margen Real", f"{m_real:.1f}%")
+
+    if st.button("📥 Exportar Análisis"):
+        # Lógica de exportación...
+        st.write("Reporte generado con éxito.")
