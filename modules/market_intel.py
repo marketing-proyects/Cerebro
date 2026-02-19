@@ -4,10 +4,24 @@ from io import BytesIO
 from modules.ai_engine import procesar_lote_industrial
 
 def mostrar_investigacion():
-    st.markdown("<h1>📊 Investigación de Mercado</h1>", unsafe_allow_html=True)
-    
-    st.info("💡 **Nota:** Para iniciar una nueva búsqueda desde cero, por favor presione la tecla **F5** (o actualice la pestaña en su navegador) para limpiar los resultados anteriores.")
-    
+    # Encabezado con título y botón de Limpieza Quirúrgica
+    col_t, col_r = st.columns([3, 1])
+    with col_t:
+        st.markdown("<h1 style='margin:0'>📊 Investigación de Mercado</h1>", unsafe_allow_html=True)
+    with col_r:
+        if st.button("🧹 Limpiar Búsqueda", type="secondary", use_container_width=True):
+            # 1. Limpiamos la caché técnica (Obliga a la IA a buscar de nuevo)
+            st.cache_data.clear()
+            
+            # 2. Borramos SOLO los datos de esta investigación (Respeta el Login)
+            keys_to_reset = ['resultados_investigacion', 'ultimos_resultados', 'df_mkt_actual', 'precios_mkt', 'nombres_seleccionados']
+            for key in keys_to_reset:
+                if key in st.session_state:
+                    del st.session_state[key]
+            
+            # Refrescamos la pantalla
+            st.rerun()
+
     st.divider()
     
     archivo = st.file_uploader("Subir Inventario", type=['xlsx', 'xlsm'], key="invest_v_final")
@@ -22,7 +36,7 @@ def mostrar_investigacion():
                 st.session_state['ultimos_resultados'] = resultados
                 status.update(label="✅ Análisis Completo", state="complete", expanded=False)
 
-        # BLINDAJE: Verificamos de forma segura si la IA devolvió datos
+        # Visualización y Blindaje
         if 'ultimos_resultados' in st.session_state:
             datos_mkt = st.session_state['ultimos_resultados']
             
