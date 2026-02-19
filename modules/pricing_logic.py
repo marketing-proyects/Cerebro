@@ -6,17 +6,19 @@ from io import BytesIO
 def mostrar_fijacion_precios():
     st.header("💰 Módulo de Fijación de Precios")
     
-    # 1. RECUPERACIÓN DE DESCRIPCIONES (Lógica de palabras clave IA)
+    # 1. RECUPERACIÓN DE DESCRIPCIONES (Blindaje contra KeyError)
     if 'resultados_investigacion' in st.session_state:
         with st.expander("📥 Selección de Productos", expanded=True):
             df_invest = pd.DataFrame(st.session_state['resultados_investigacion'])
             
-            # Usamos el campo 'ADN Identificado' o las palabras clave generadas previamente
-            # que es donde reside la descripción acortada por la IA
+            # Verificamos si existe la columna de ADN, si no, la creamos temporalmente
+            if 'ADN Identificado' not in df_invest.columns:
+                # Si falta el ADN, tomamos las primeras palabras de la descripción original
+                df_invest['ADN Identificado'] = df_invest['Original (Würth)'].astype(str).str.split().str[1:4].str.join(' ')
+            
             df_visual = pd.DataFrame()
             df_visual['Código'] = df_invest['Original (Würth)'].astype(str).str.split().str[0]
-            # Recuperamos la descripción sintetizada por la IA (ADN)
-            df_visual['Descripción'] = df_invest['ADN Identificado'].fillna("Descripción no generada")
+            df_visual['Descripción'] = df_invest['ADN Identificado'].fillna("Sin descripción IA")
             df_display = df_visual.drop_duplicates()
 
             seleccion = st.dataframe(
@@ -30,7 +32,8 @@ def mostrar_fijacion_precios():
             indices = seleccion.selection.rows
             if indices:
                 codigos_sel = df_display.iloc[indices]['Código'].tolist()
-                st.session_state['df_mkt_actual'] = df_invest[df_invest['Original (Würth)'].astype(str).str.startswith(tuple(codigos_sel))]
+                mask = df_invest['Original (Würth)'].astype(str).str.startswith(tuple(codigos_sel))
+                st.session_state['df_mkt_actual'] = df_invest[mask]
                 st.session_state['nombres_seleccionados'] = df_display.iloc[indices]['Descripción'].tolist()
 
     df_mkt = st.session_state.get('df_mkt_actual', pd.DataFrame())
@@ -50,37 +53,35 @@ def mostrar_fijacion_precios():
         margen_objetivo = st.slider("Margen de Utilidad (%)", 0, 100, 35)
         iva = st.checkbox("Incluir IVA (22%)", value=True)
 
-    # 3. CÁLCULO DE PRECIO Y ESTRATEGIA DINÁMICA
+    # 3. LÓGICA DE PRECIO Y ESTRATEGIA
     precio_propuesto_neto = c_cif / (1 - (margen_objetivo / 100)) if margen_objetivo < 100 else c_cif
-    estrategia_sug = "Análisis de Mercado"
+    estrategia_sug = "Analizando..."
 
     if not df_mkt.empty:
         precios_ref = pd.to_numeric(df_mkt['P. Minorista'], errors='coerce').dropna().tolist()
         if precios_ref:
             promedio_mkt = sum(precios_ref) / len(precios_ref)
-            # Detección de calidad Premium según análisis previo de la IA
-            es_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False))
+            es_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False)) if 'Calidad' in df_mkt.columns else False
             
             if es_premium:
                 estrategia_sug = "Paridad Competitiva"
                 precio_propuesto_neto = promedio_mkt
-            elif (precio_propuesto_neto / promedio_mkt) > 1.15: estrategia_sug = "Descreme"
-            elif (precio_propuesto_neto / promedio_mkt) < 0.85: estrategia_sug = "Penetración"
-            else: estrategia_sug = "Paridad de Mercado"
+            else:
+                estrategia_sug = "Paridad de Mercado"
 
     p_final_iva = precio_propuesto_neto * 1.22 if iva else precio_propuesto_neto
 
-    # 4. GRÁFICO DE PELOTITAS (Precio Eje Vertical, Actores Eje Horizontal)
+    # 4. GRÁFICO DE PELOTITAS (Horizontal: Actores, Vertical: Precio)
     if not df_mkt.empty and not df_mkt['P. Minorista'].isnull().all():
-        st.subheader(f"🏁 Sugerencia: {estrategia_sug}")
+        st.subheader(f"🏁 Estrategia Sugerida: {estrategia_sug}")
         
-        # Preparación de datos
+        # Preparación de datos simplificada
         df_plot = df_mkt[['Competidor', 'P. Minorista']].copy()
         df_plot.columns = ['Actor', 'Precio']
         df_plot['Precio'] = pd.to_numeric(df_plot['Precio'], errors='coerce')
         df_plot['Marca'] = 'Competencia'
         
-        # Agregamos Würth
+        # Pelotita roja de WÜRTH
         prop_row = pd.DataFrame({'Actor': ['WÜRTH'], 'Precio': [precio_propuesto_neto], 'Marca': ['Würth']})
         df_plot = pd.concat([df_plot, prop_row], ignore_index=True)
 
@@ -89,10 +90,9 @@ def mostrar_fijacion_precios():
             x="Actor", 
             y="Precio", 
             color="Marca",
-            color_discrete_map={'Competencia': '#1f77b4', 'Würth': '#FF0000'}, # Azul y Rojo
-            size=[12] * (len(df_plot)-1) + [25], # Würth más grande
-            title="Comparativa de Precios por Actor",
-            labels={"Precio": "Precio de Mercado", "Actor": "Competidores / Würth"}
+            color_discrete_map={'Competencia': '#1f77b4', 'Würth': '#FF0000'},
+            size=[15] * (len(df_plot)-1) + [30], # Pelotita de Würth más grande
+            title="Mapa de Precios por Actor"
         )
         
         fig.update_layout(showlegend=False, height=450)
@@ -105,7 +105,3 @@ def mostrar_fijacion_precios():
     r2.metric("PVP Final", f"{p_final_iva:,.2f}")
     m_real = ((precio_propuesto_neto - c_cif) / precio_propuesto_neto * 100) if precio_propuesto_neto > 0 else 0
     r3.metric("Margen Real", f"{m_real:.1f}%")
-
-    if st.button("📥 Exportar Análisis"):
-        # Lógica de exportación a Excel...
-        st.write("Análisis exportado.")
