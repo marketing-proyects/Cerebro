@@ -32,10 +32,10 @@ def inyectar_animacion():
             
             /* Puntos (Nodos) */
             .particle { position: absolute; border-radius: 50%; }
-            .p1 { width: 8px; height: 8px; background: rgba(150, 150, 150, 0.3); top: 25%; left: 25%; animation: float 6s infinite; }
-            .p2 { width: 12px; height: 12px; background: rgba(150, 150, 150, 0.2); top: 65%; left: 75%; animation: float 8s infinite; }
-            .p3 { width: 6px; height: 6px; background: rgba(237, 28, 36, 0.4); top: 45%; left: 15%; animation: float 5s infinite; } /* Toque rojo Würth */
-            .p4 { width: 10px; height: 10px; background: rgba(150, 150, 150, 0.3); top: 75%; left: 35%; animation: float 7s infinite; }
+            .p1 { width: 8px; height: 16px; background: rgba(150, 150, 150, 0.3); top: 25%; left: 25%; animation: float 6s infinite; }
+            .p2 { width: 12px; height: 24px; background: rgba(150, 150, 150, 0.2); top: 65%; left: 75%; animation: float 8s infinite; }
+            .p3 { width: 6px; height: 12px; background: rgba(237, 28, 36, 0.4); top: 45%; left: 15%; animation: float 5s infinite; } /* Toque rojo Würth */
+            .p4 { width: 10px; height: 20px; background: rgba(150, 150, 150, 0.3); top: 75%; left: 35%; animation: float 7s infinite; }
             
             /* Líneas conectoras */
             .connecting-line { position: absolute; background: rgba(150, 150, 150, 0.15); height: 1px; transform-origin: 0 0; }
