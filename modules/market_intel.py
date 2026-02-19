@@ -6,6 +6,26 @@ from modules.ai_engine import procesar_lote_industrial
 def mostrar_investigacion():
     st.markdown("<h1>📊 Investigación de Mercado</h1>", unsafe_allow_html=True)
     
+    # --- BOTÓN DE REFRESCO (Simulación F5 / Limpieza) ---
+    if st.button("🔄 Refrescar página para nueva investigación", type="primary", use_container_width=True):
+        # Limpiamos las variables que vinculan esta pestaña con la de Precios
+        keys_to_reset = [
+            'resultados_investigacion', 
+            'ultimos_resultados', 
+            'df_mkt_actual', 
+            'precios_mkt', 
+            'nombres_seleccionados'
+        ]
+        for key in keys_to_reset:
+            if key in st.session_state:
+                del st.session_state[key]
+        
+        # Refrescamos la aplicación por completo
+        st.rerun()
+
+    st.divider()
+
+    # --- FLUJO ORIGINAL VIGENTE ---
     archivo = st.file_uploader("Subir Inventario", type=['xlsx', 'xlsm'], key="invest_v_final")
     
     if archivo:
