@@ -2,7 +2,7 @@ import streamlit as st
 import os
 
 def inyectar_animacion():
-    # Solo mostramos la animación si es la primera vez en la sesión
+    # Animación solo para la primera vez en la sesión
     if 'animacion_mostrada' not in st.session_state:
         st.markdown("""
             <style>
@@ -72,10 +72,10 @@ def gestionar_login():
     if not st.session_state["autenticado"]:
         st.markdown("<style>.stApp { background-color: white !important; }</style>", unsafe_allow_html=True)
         
-        # 1. Llamamos a la animación de fondo
+        # 1. Llamado a la animación de fondo
         inyectar_animacion()
         
-        # 2. Reubicación del Logo a la derecha
+        # 2. Logo a la derecha
         # Usamos una columna muy ancha vacía y una pequeña a la derecha para el logo
         col_vacia, col_logo = st.columns([5, 1])
         with col_logo:
@@ -88,7 +88,7 @@ def gestionar_login():
                 st.markdown("<h2 style='color: #ED1C24; text-align: right; margin-top: 0;'>WÜRTH</h2>", unsafe_allow_html=True)
         
         # 3. Título centrado (independiente del logo)
-        st.markdown("<h3 style='text-align: center; color: #333; margin-top: -30px; margin-bottom: 20px;'>ACCESO CEREBRO</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; color: #333; margin-top: -30px; margin-bottom: 20px;'>ACCESO A INVESTIGADOR AL SISTEMA</h3>", unsafe_allow_html=True)
 
         # 4. Formulario de Login original
         with st.container():
