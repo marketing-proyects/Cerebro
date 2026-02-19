@@ -2,62 +2,74 @@ import streamlit as st
 import os
 
 def inyectar_animacion():
-    # Animación permanente de neuronas neón
+    # Inyectamos el fondo, las neuronas y el logo vía CSS puro para máximo control
     st.markdown("""
         <style>
-        #animated-background {
-            position: fixed; 
+        /* --- FONDO BLANCO PERMANENTE --- */
+        #cerebro-bg {
+            position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 0; 
+            z-index: -1;
             background: #ffffff;
             pointer-events: none;
         }
-        
-        .neuron-node { 
-            position: absolute; 
-            border-radius: 50%; 
-            background: #ffffff;
-            opacity: 0.4;
-            box-shadow: 0 0 10px 2px rgba(0, 212, 255, 0.6), 0 0 20px 5px rgba(0, 212, 255, 0.2);
-            animation: floatNode 15s infinite ease-in-out;
-        }
-        
-        .n1 { width: 14px; height: 14px; top: 15%; left: 10%; }
-        .n2 { width: 20px; height: 20px; top: 70%; left: 85%; animation-duration: 20s; }
-        .n3 { 
-            width: 12px; height: 12px; top: 40%; left: 5%; 
-            box-shadow: 0 0 10px 2px rgba(237, 28, 36, 0.5), 0 0 20px 5px rgba(237, 28, 36, 0.2);
-            animation-duration: 12s;
-        }
-        .n4 { width: 16px; height: 16px; top: 85%; left: 30%; animation-duration: 25s; }
 
-        .synapse {
+        /* --- LOGO WÜRTH (JPG) POSICIONADO CON PRECISIÓN --- */
+        #logo-superior {
+            position: fixed;
+            top: 30px;    /* Margen desde el techo */
+            right: 30px;  /* Margen desde la derecha */
+            width: 180px;
+            height: auto;
+            z-index: 100;
+            content: url("https://raw.githubusercontent.com/marketing-proyects/Cerebro/main/logo_wurth.jpg");
+        }
+
+        /* --- NEURONAS NEÓN (ANIMACIÓN REFORZADA) --- */
+        .neuron {
             position: absolute;
-            background: linear-gradient(90deg, rgba(0, 212, 255, 0) 0%, rgba(0, 212, 255, 0.15) 50%, rgba(0, 212, 255, 0) 100%);
-            height: 1px;
-            animation: pulseSynapse 10s infinite ease-in-out;
+            border-radius: 50%;
+            background: #ffffff;
+            opacity: 0.5;
+            animation: moveNeuron 20s infinite linear;
         }
-        .s1 { width: 400px; top: 15%; left: 10%; transform: rotate(20deg); }
-        .s2 { width: 500px; top: 70%; left: 85%; transform: rotate(-165deg); }
 
-        @keyframes floatNode {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(15px, 20px); }
+        /* Nodo Cian con Resplandor */
+        .n1 { 
+            width: 15px; height: 15px; top: 20%; left: 15%; 
+            box-shadow: 0 0 15px 5px rgba(0, 212, 255, 0.7); 
         }
-        @keyframes pulseSynapse {
-            0%, 100% { opacity: 0.1; }
-            50% { opacity: 0.3; }
+        /* Nodo Rojo (Würth Style) con Resplandor */
+        .n2 { 
+            width: 12px; height: 12px; top: 50%; left: 80%; 
+            box-shadow: 0 0 15px 5px rgba(237, 28, 36, 0.6);
+            animation-duration: 25s;
         }
+        /* Nodo Cian Grande */
+        .n3 { 
+            width: 20px; height: 20px; top: 80%; left: 30%; 
+            box-shadow: 0 0 20px 8px rgba(0, 212, 255, 0.4);
+            animation-duration: 30s;
+        }
+
+        /* --- KEYFRAMES PARA MOVIMIENTO --- */
+        @keyframes moveNeuron {
+            0% { transform: translate(0, 0); }
+            33% { transform: translate(30px, 50px); }
+            66% { transform: translate(-20px, 20px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        /* Forzar que el App de Streamlit sea transparente para ver el fondo */
+        .stApp { background: transparent !important; }
         </style>
-        
-        <div id="animated-background">
-            <div class="neuron-node n1"></div>
-            <div class="neuron-node n2"></div>
-            <div class="neuron-node n3"></div>
-            <div class="neuron-node n4"></div>
-            <div class="synapse s1"></div>
-            <div class="synapse s2"></div>
+
+        <div id="cerebro-bg">
+            <div class="neuron n1"></div>
+            <div class="neuron n2"></div>
+            <div class="neuron n3"></div>
         </div>
+        <div id="logo-superior"></div>
     """, unsafe_allow_html=True)
 
 def gestionar_login():
@@ -65,30 +77,18 @@ def gestionar_login():
         "admin": {"pass": "123", "permisos": ["Investigación de Mercado", "Fijación de Precios"]},
         "mkt_user": {"pass": "wurth2026", "permisos": ["Investigación de Mercado"]},
         "ventas_user": {"pass": "precios2026", "permisos": ["Fijación de Precios"]},
-        "invitado": {"pass": "colega2026", "permisos": ["Investigación de Mercado"]}
+        "prueba": {"pass": "123", "permisos": ["Investigación de Mercado"]}
     }
 
     if "autenticado" not in st.session_state:
         st.session_state["autenticado"] = False
 
     if not st.session_state["autenticado"]:
-        st.markdown("<style>.stApp { background-color: white !important; }</style>", unsafe_allow_html=True)
-        
+        # Inyectamos toda la visual (Fondo, Animación y Logo)
         inyectar_animacion()
         
-        # --- LOGO A LA DERECHA CON JPG ---
-        col_vacia, col_logo = st.columns([5, 1])
-        with col_logo:
-            # Padding de 20px para alejarlo de los bordes superior y derecho
-            st.markdown('<div style="padding: 20px 20px 0 0; text-align: right;">', unsafe_allow_html=True)
-            logo_path = os.path.join(os.getcwd(), "logo_wurth.jpg") # CAMBIADO A .JPG
-            if os.path.exists(logo_path):
-                st.image(logo_path, use_container_width=True)
-            else:
-                st.markdown("<h2 style='color: #ED1C24; margin: 0;'>WÜRTH</h2>", unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.markdown("<h3 style='text-align: center; color: #333; margin-top: 10px; margin-bottom: 25px;'>ACCESO CEREBRO</h3>", unsafe_allow_html=True)
+        # Título centrado (Se baja margen para que no choque con el logo)
+        st.markdown("<h3 style='text-align: center; color: #333; margin-top: 120px; margin-bottom: 30px;'>ACCESO CEREBRO</h3>", unsafe_allow_html=True)
 
         with st.container():
             _, center, _ = st.columns([1, 2, 1])
