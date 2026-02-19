@@ -6,33 +6,33 @@ from io import BytesIO
 def mostrar_fijacion_precios():
     st.header("💰 Módulo de Fijación de Precios")
     
-    # --- BOTÓN DE REINICIO (Solución al IndexError) ---
+    # --- BOTÓN DE REINICIO DE SESIÓN ---
     with st.sidebar:
         st.divider()
         if st.button("🧹 Nueva Investigación (Limpiar Todo)", use_container_width=True, type="primary"):
-            # Borramos las variables de sesión que causan el conflicto
-            keys_to_clear = ['resultados_investigacion', 'df_mkt_actual', 'precios_mkt', 'nombres_seleccionados']
-            for key in keys_to_clear:
+            # Limpieza total de las variables que causan conflictos de índice
+            for key in ['resultados_investigacion', 'df_mkt_actual', 'precios_mkt', 'nombres_seleccionados']:
                 if key in st.session_state:
                     del st.session_state[key]
             st.rerun()
 
-    # 1. VISOR Y SELECCIÓN (Blindaje contra DataFrame vacío)
+    # 1. VISOR Y SELECCIÓN (Blindado contra IndexError)
     if 'resultados_investigacion' in st.session_state and len(st.session_state['resultados_investigacion']) > 0:
         df_invest = pd.DataFrame(st.session_state['resultados_investigacion'])
         
-        with st.expander("📊 Vista Previa de la Investigación", expanded=True):
-            st.dataframe(df_invest, use_container_width=True, hide_index=True)
-            
-            st.subheader("📥 Selección de Productos")
-            
-            # Blindaje: Solo buscamos columnas si el DF tiene columnas
-            if not df_invest.empty and len(df_invest.columns) > 0:
+        # Solo procedemos si el DataFrame tiene columnas para evitar el error de índice
+        if not df_invest.empty and len(df_invest.columns) > 0:
+            with st.expander("📊 Vista Previa de la Investigación", expanded=True):
+                st.dataframe(df_invest, use_container_width=True, hide_index=True)
+                
+                st.subheader("📥 Selección de Productos")
+                # Identificación dinámica de la columna de origen
                 col_id = next((c for c in df_invest.columns if "Original" in c or "Würth" in c), df_invest.columns[0])
                 
                 df_sel = pd.DataFrame()
                 df_sel['Código'] = df_invest[col_id].astype(str).str.split().str[0]
                 
+                # Priorizamos el ADN Identificado para la descripción
                 if 'ADN Identificado' in df_invest.columns:
                     df_sel['Descripción'] = df_invest['ADN Identificado'].fillna("Sin ADN")
                 else:
@@ -53,7 +53,7 @@ def mostrar_fijacion_precios():
                     st.session_state['precios_mkt'] = pd.to_numeric(df_invest[mask]['P. Minorista'], errors='coerce').dropna().tolist()
                     st.session_state['nombres_seleccionados'] = df_sel.iloc[indices]['Descripción'].tolist()
     else:
-        st.info("ℹ️ Realiza una investigación de mercado para comenzar el análisis de precios. Si acabas de terminar una, asegúrate de haber seleccionado los productos.")
+        st.info("ℹ️ Realiza una investigación de mercado para comenzar el análisis de precios.")
 
     precios_ref = st.session_state.get('precios_mkt', [])
     df_mkt = st.session_state.get('df_mkt_actual', pd.DataFrame())
@@ -76,39 +76,37 @@ def mostrar_fijacion_precios():
         estrategia_manual = st.selectbox("Simular Estrategia Kotler", ["Basado en costo", "Paridad de mercado", "Descreme", "Penetración"])
         aplicar_iva = st.checkbox("Incluir IVA Uruguay (22%)", value=True)
 
-    # 3. MOTOR DE CÁLCULO
+    # 3. MOTOR DE CÁLCULO DINÁMICO (Corrección Margen 100%)
+    divisor = (1 - (margen / 100)) if margen < 100 else 0.0001
+    
     if estrategia_manual == "Basado en costo" or not precios_ref:
-        divisor = (1 - (margen / 100)) if margen < 100 else 0.0001
         precio_neto = c_cif / divisor
     elif estrategia_manual == "Paridad de mercado":
         precio_neto = promedio_mkt
     elif estrategia_manual == "Descreme":
-        precio_neto = max(precios_ref) * 1.10 if precios_ref else c_cif
+        precio_neto = max(precios_ref) * 1.10 if precios_ref else c_cif / divisor
     elif estrategia_manual == "Penetración":
-        precio_neto = min(precios_ref) * 0.90 if precios_ref else c_cif
+        precio_neto = min(precios_ref) * 0.90 if precios_ref else c_cif / divisor
 
-    if aplicar_iva:
-        precio_final_con_impuestos = precio_neto * 1.22
-    else:
-        precio_final_con_impuestos = precio_neto
+    # Cálculo del IVA reactivo
+    precio_final_total = precio_neto * 1.22 if aplicar_iva else precio_neto
 
-    # 4. ESTRATEGIA SUGERIDA
+    # 4. ESTRATEGIA DE FIJACIÓN DE PRECIO SUGERIDA
     if not df_mkt.empty and precios_ref:
         st.subheader("🧠 Análisis del Sistema")
-        es_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False)) if 'Calidad' in df_mkt.columns else False
-        nombres_rivales = df_mkt['Competidor'].unique().tolist() if 'Competidor' in df_mkt.columns else []
+        es_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False))
         
         if es_premium:
-            st.success(f"**Estrategia de fijación de precio sugerida: Paridad Competitiva (Segmento Premium)**")
-            st.info(f"Se recomienda esta estrategia debido a la presencia de marcas líderes. Würth debe posicionarse igualando el precio de referencia para validar su calidad técnica.")
+            st.success("**Estrategia de fijación de precio sugerida: Paridad Competitiva (Segmento Premium)**")
+            st.info("Se recomienda esta estrategia debido a la presencia de marcas líderes. Würth debe posicionarse igualando el precio de referencia para validar su calidad técnica superior.")
         elif (c_cif / promedio_mkt) < 0.5:
-            st.warning(f"**Estrategia de fijación de precio sugerida: Penetración / Crecimiento Agresivo**")
-            st.info("Su costo de importación es bajo frente al mercado. Tiene ventaja para ganar cuota rápidamente.")
+            st.warning("**Estrategia de fijación de precio sugerida: Penetración / Crecimiento Agresivo**")
+            st.info("Su costo de importación es bajo frente al mercado. Tiene una ventaja excepcional para ganar cuota rápidamente mediante un precio disruptivo.")
         else:
-            st.info(f"**Estrategia de fijación de precio sugerida: Descreme Controlado**")
-            st.info("Basado en la superioridad de marca de Würth, se sugiere un precio superior al promedio.")
+            st.info("**Estrategia de fijación de precio sugerida: Descreme Controlado**")
+            st.info("Basado en la superioridad de marca de Würth, se sugiere capitalizar el valor percibido con un precio superior al promedio del mercado estándar.")
 
-    # 5. GRÁFICO
+    # 5. GRÁFICO DE BARRAS COMPARATIVO
     if precios_ref:
         st.subheader("🏁 Análisis Comparativo")
         chart_data = pd.DataFrame({
@@ -120,8 +118,7 @@ def mostrar_fijacion_precios():
     # 6. RESULTADOS FINALES
     st.divider()
     m_real = ((precio_neto - c_cif) / precio_neto * 100) if precio_neto > 0 else 0
-
     res1, res2, res3 = st.columns(3)
     res1.metric("Costo CIF Final", f"{c_cif:,.2f}")
-    res2.metric("PVP Final (Inc. IVA)" if aplicar_iva else "PVP Final (Neto)", f"{precio_final_con_impuestos:,.2f}")
+    res2.metric("PVP Final (Inc. IVA)" if aplicar_iva else "PVP Final (Neto)", f"{precio_final_total:,.2f}")
     res3.metric("Margen Real", f"{m_real:.1f}%")
