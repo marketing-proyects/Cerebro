@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import json
-import re
 import time
 from google import genai
 from google.genai import types
@@ -10,10 +9,16 @@ from groq import Groq
 def ejecutar_analisis_ia(descripcion, url_ref=None):
     desc_limpia = str(descripcion).strip()
     
+    # Limpiamos la URL para que Gemini no tire Error 400 si está vacía o es 'nan'
+    if not url_ref or str(url_ref).lower() == "nan":
+        url_limpia = "No disponible (buscar usando solo la descripción)"
+    else:
+        url_limpia = str(url_ref).strip()
+    
     # NUEVO PROMPT: PROTOCOLO DE INTELIGENCIA COMPETITIVA & SEO SENIOR
     prompt = f"""
     Actúa como un Especialista en Inteligencia Competitiva y SEO Senior en Uruguay. 
-    Tu objetivo es realizar un mapeo exhaustivo del ecosistema competitivo de la siguiente URL: {url_ref}
+    Tu objetivo es realizar un mapeo exhaustivo del ecosistema competitivo del siguiente producto/URL: {url_limpia}
     Descripción base: "{desc_limpia}"
 
     PROTOCOLO DE ANÁLISIS (ESTRICTO):
@@ -88,11 +93,14 @@ def ejecutar_analisis_ia(descripcion, url_ref=None):
             )
             return json.loads(completion.choices[0].message.content)
         except Exception as e: 
-            error_api += f" | Groq Falló: {str(e)[:50]}"
-            
-    # Si ambas fallan, enviamos el aviso a la pantalla
+            if error_api:
+                error_api += f" | Groq Falló: {str(e)[:50]}"
+            else:
+                error_api = f"Groq Falló: {str(e)[:50]}"
+                
+    # Si ambas fallan, enviamos el aviso a la pantalla para monitoreo
     if error_api:
-        st.toast(f"⏳ Límite de API alcanzado o error de conexión. Detalle: {error_api}", icon="⚠️")
+        st.toast(f"⏳ Límite de API alcanzado o error. Detalle: {error_api}", icon="⚠️")
 
     return None
 
@@ -101,7 +109,7 @@ def procesar_lote_industrial(df):
     status_text = st.empty()
     progreso = st.progress(0)
     
-    # Tu lectura original (Restaurada)
+    # Lectura original de columnas
     col_desc = next((c for c in ['DESCRIPCION CORTA', 'Descripción'] if c in df.columns), df.columns[0])
     col_url = next((c for c in ['URL (Opcional pero recomendada)', 'URL', 'Link'] if c in df.columns), None)
 
@@ -113,8 +121,8 @@ def procesar_lote_industrial(df):
         desc_actual = str(row[col_desc])
         url_val = row[col_url] if col_url and pd.notna(row[col_url]) else None
         
-        # Tu lógica de salto original (Restaurada)
-        if not url_val:
+        # Filtro original: se salta el producto si no tiene URL en el Excel
+        if not url_val or str(url_val).lower() == "nan":
             continue
 
         status_text.info(f"🚀 Mapeo Estratégico & ADN: {desc_actual[:30]}...")
@@ -139,7 +147,7 @@ def procesar_lote_industrial(df):
                     "Link": comp.get("url_evidencia")
                 })
         
-        time.sleep(5) # Pausa para navegación profunda de 3 competidores
+        time.sleep(5) # Pausa original para cuidar el límite de uso de las APIs
             
     status_text.empty()
     progreso.empty()
