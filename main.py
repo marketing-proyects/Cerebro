@@ -1,7 +1,7 @@
 import streamlit as st
 
 # 1. CONFIGURACIÓN DE PÁGINA: Obligatoriamente antes de importar tus módulos
-st.set_page_config(page_title="CEREBRO - WÜRTH", page_icon="👁️‍🗨️", layout="wide")
+st.set_page_config(page_title="SISTEMA CEREBRO - WÜRTH", page_icon="👁️‍🗨️", layout="wide")
 
 # 2. Importación de todos los módulos de la aplicación
 from modules.auth_manager import gestionar_login
