@@ -4,14 +4,13 @@ from io import BytesIO
 from modules.ai_engine import procesar_lote_industrial
 
 def mostrar_investigacion():
-    # Encabezado con título y botón de refresco alineado a la derecha
+    # Encabezado con Título y Botón alineado a la derecha
     col_t, col_r = st.columns([3, 1])
     with col_t:
         st.markdown("<h1 style='margin:0'>📊 Investigación de Mercado</h1>", unsafe_allow_html=True)
     with col_r:
-        # Botón que limpia DATOS pero NO la sesión de usuario
+        # Botón pequeño que limpia datos de productos pero NO la sesión de usuario
         if st.button("🔄 Nueva Investigación", type="secondary"):
-            # Definimos solo las variables de datos para borrar
             keys_to_reset = [
                 'resultados_investigacion', 
                 'ultimos_resultados', 
@@ -22,8 +21,6 @@ def mostrar_investigacion():
             for key in keys_to_reset:
                 if key in st.session_state:
                     del st.session_state[key]
-            
-            # Refrescamos la página sin cerrar sesión
             st.rerun()
 
     st.divider()
@@ -35,19 +32,14 @@ def mostrar_investigacion():
         
         if st.button("INICIAR INVESTIGACIÓN ESTRATÉGICA"):
             with st.status("🕵️ Investigando con Multi-IA...", expanded=True) as status:
-                # Ejecución de la IA
                 resultados = procesar_lote_industrial(df)
-                
-                # Guardamos los resultados en la sesión
+                # Guardamos los resultados para que ambos módulos los vean
                 st.session_state['resultados_investigacion'] = resultados 
                 st.session_state['ultimos_resultados'] = resultados
-                
                 status.update(label="✅ Análisis Completo", state="complete", expanded=False)
 
-        # Visualización de resultados (El preview que ya recuperamos)
         if 'ultimos_resultados' in st.session_state and st.session_state['ultimos_resultados']:
             df_res = pd.DataFrame(st.session_state['ultimos_resultados'])
-            
             st.divider()
             st.write("### 📈 Resultados de la Competencia")
             st.dataframe(df_res, use_container_width=True)
