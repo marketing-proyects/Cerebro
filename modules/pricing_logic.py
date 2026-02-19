@@ -46,30 +46,35 @@ def mostrar_fijacion_precios():
         margen_objetivo = st.slider("Margen de Utilidad Deseado (%)", 0, 100, 35)
         iva = st.checkbox("Incluir IVA Uruguay (22%)", value=True)
 
-    # 3. Motor de Decisión Dinámico (Sin Menú Desplegable)
-    precio_base_neto = c_cif / (1 - (margen_objetivo / 100)) if margen_objetivo < 100 else c_cif
-    
+    # --- INICIALIZACIÓN DE VARIABLES PARA EVITAR UNBOUNDLOCALERROR ---
+    estrategia_sug = "Basado en Costo"
+    precio_estrategico_neto = c_cif / (1 - (margen_objetivo / 100)) if margen_objetivo < 100 else c_cif
+    es_contra_premium = False
+    precios_ref = []
+
+    # 3. Motor de Decisión Dinámico (Si hay datos de mercado)
     if not df_mkt.empty:
         precios_ref = pd.to_numeric(df_mkt['P. Minorista'], errors='coerce').dropna().tolist()
-        promedio_mkt = sum(precios_ref) / len(precios_ref)
-        
-        # Inteligencia Contextual de la IA: Nivel de competencia detectado
-        es_contra_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False))
-        
-        # Lógica de Posicionamiento Automático
-        estrategia_sug = "Basado en Costo"
-        precio_estrategico_neto = precio_base_neto
-        dif_vs_mkt = ((precio_base_neto / promedio_mkt) - 1) * 100
+        if precios_ref:
+            promedio_mkt = sum(precios_ref) / len(precios_ref)
+            
+            # Inteligencia Contextual de la IA
+            es_contra_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False))
+            
+            dif_vs_mkt = ((precio_estrategico_neto / promedio_mkt) - 1) * 100
 
-        if es_contra_premium:
-            estrategia_sug = "Paridad Competitiva"
-            precio_estrategico_neto = promedio_mkt
-        elif dif_vs_mkt > 15: estrategia_sug = "Descreme"
-        elif dif_vs_mkt < -15: estrategia_sug = "Penetración"
+            if es_contra_premium:
+                estrategia_sug = "Paridad Competitiva"
+                precio_estrategico_neto = promedio_mkt
+            elif dif_vs_mkt > 15: 
+                estrategia_sug = "Descreme"
+            elif dif_vs_mkt < -15: 
+                estrategia_sug = "Penetración"
 
-        p_final_con_iva = precio_estrategico_neto * 1.22 if iva else precio_estrategico_neto
+    p_final_con_iva = precio_estrategico_neto * 1.22 if iva else precio_estrategico_neto
 
-        # 4. GRÁFICO DE DISPERSIÓN (Visualización Estratégica)
+    # 4. GRÁFICO DE DISPERSIÓN
+    if not df_mkt.empty and precios_ref:
         st.subheader(f"🏁 Análisis Estratégico: {estrategia_sug}")
         
         df_scatter = df_mkt[['Competidor', 'P. Minorista']].copy()
@@ -77,7 +82,7 @@ def mostrar_fijacion_precios():
         df_scatter['Precio'] = pd.to_numeric(df_scatter['Precio'], errors='coerce')
         df_scatter['Entidad'] = 'Competencia'
         
-        # Añadimos la Propuesta Würth en ROJO y destacada
+        # Propuesta Würth en ROJO y destacada
         prop_row = pd.DataFrame({'Vendedor': ['PROPUESTA WÜRTH'], 'Precio': [precio_estrategico_neto], 'Entidad': ['Würth']})
         df_scatter = pd.concat([df_scatter, prop_row], ignore_index=True)
 
@@ -88,21 +93,20 @@ def mostrar_fijacion_precios():
             title="Mapa de Posicionamiento: Würth vs Competencia Detectada"
         )
         
-        # Líneas de Referencia
         fig.add_vline(x=min(precios_ref), line_dash="dash", line_color="gray", annotation_text="Suelo")
         fig.add_vline(x=max(precios_ref), line_dash="dash", line_color="gray", annotation_text="Techo")
-        fig.add_vline(x=promedio_mkt, line_dash="dot", line_color="green", annotation_text="Medio Mercado")
+        fig.add_vline(x=sum(precios_ref)/len(precios_ref), line_dash="dot", line_color="green", annotation_text="Medio")
         
         fig.update_layout(showlegend=False, height=450)
         st.plotly_chart(fig, use_container_width=True)
 
-        # Sugerencia Narrativa del Asesor
+        # Sugerencia Narrativa
         if es_contra_premium:
-            st.info(f"**Se sugiere {estrategia_sug}.** Dado que compites contra marcas líderes, Würth debe alinearse a estos valores para ser una alternativa técnica válida.")
+            st.info(f"**Se sugiere {estrategia_sug}.** Dado que compites contra marcas líderes, Würth debe alinearse a estos valores.")
         else:
             st.info(f"**Se sugiere {estrategia_sug}.** Puedes capitalizar el valor de marca superior de Würth frente a los competidores detectados.")
 
-    # 5. Resultados y Exportación
+    # 5. RESULTADOS FINALES
     st.divider()
     r1, r2, r3 = st.columns(3)
     r1.metric("Costo CIF", f"{c_cif:,.2f}")
