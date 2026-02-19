@@ -13,8 +13,15 @@ def mostrar_investigacion():
             # 1. Limpiamos la caché técnica (Obliga a la IA a buscar de nuevo)
             st.cache_data.clear()
             
-            # 2. Borramos SOLO los datos de esta investigación (Respeta el Login)
-            keys_to_reset = ['resultados_investigacion', 'ultimos_resultados', 'df_mkt_actual', 'precios_mkt', 'nombres_seleccionados']
+            # 2. Borramos los datos y el ARCHIVO (Agregamos 'invest_v_final')
+            keys_to_reset = [
+                'resultados_investigacion', 
+                'ultimos_resultados', 
+                'df_mkt_actual', 
+                'precios_mkt', 
+                'nombres_seleccionados',
+                'invest_v_final'  # <-- Esta es la llave que borra el Excel visualmente
+            ]
             for key in keys_to_reset:
                 if key in st.session_state:
                     del st.session_state[key]
