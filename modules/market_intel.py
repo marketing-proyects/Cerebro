@@ -6,8 +6,8 @@ from modules.ai_engine import procesar_lote_industrial
 def mostrar_investigacion():
     st.markdown("<h1>📊 Investigación de Mercado</h1>", unsafe_allow_html=True)
     
-    # Mensaje informativo para el usuario en lugar del botón
-    st.info("💡 **Nota:** Para realizar una nueva búsqueda desde cero y limpiar los datos actuales, por favor refresque la página (F5).")
+    # Mensaje informativo simple y seguro
+    st.info("💡 **Nota:** Para iniciar una nueva búsqueda desde cero, por favor presione la tecla **F5** (o actualice la pestaña en su navegador) para limpiar los resultados anteriores.")
     
     st.divider()
     
@@ -19,7 +19,7 @@ def mostrar_investigacion():
         if st.button("INICIAR INVESTIGACIÓN ESTRATÉGICA"):
             with st.status("🕵️ Investigando con Multi-IA...", expanded=True) as status:
                 resultados = procesar_lote_industrial(df)
-                # Guardamos los resultados para el puente con el módulo de Precios
+                # Guardamos para el puente con el módulo de Precios
                 st.session_state['resultados_investigacion'] = resultados 
                 st.session_state['ultimos_resultados'] = resultados
                 status.update(label="✅ Análisis Completo", state="complete", expanded=False)
