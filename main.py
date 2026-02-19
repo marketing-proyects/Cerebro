@@ -1,10 +1,14 @@
 import streamlit as st
-from modules.auth_manager import gestionar_login
-# 1. Agregamos la importación del nuevo módulo aquí
-from modules.pricing_logic import mostrar_fijacion_precios 
 
+# 1. CONFIGURACIÓN DE PÁGINA: Obligatoriamente antes de importar tus módulos
 st.set_page_config(page_title="CEREBRO - WÜRTH", page_icon="👁️‍🗨️", layout="wide")
 
+# 2. Importación de todos los módulos de la aplicación
+from modules.auth_manager import gestionar_login
+from modules.pricing_logic import mostrar_fijacion_precios
+from modules.market_intel import mostrar_investigacion
+
+# 3. Estilos visuales de Würth (Colores corporativos)
 st.markdown("""
     <style>
     .stApp { background-color: #FFFFFF; color: #333333; }
@@ -13,12 +17,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# 4. Lógica de autenticación y navegación
 if gestionar_login():
+    # Título corregido con comillas simples por fuera y dobles por dentro
     st.sidebar.title('INTELIGENCIA DE MARKETING Y MERCADO "CEREBRO"')
     st.sidebar.write(f"Usuario: **{st.session_state.get('username', 'admin')}**")
     st.sidebar.divider()
     
-    # Asegúrate de que "Fijación de Precios" esté en la lista de permisos de tu base de datos o auth_manager
+    # Menú de navegación
     modulos = st.session_state.get("permisos", ["Investigación de Mercado", "Fijación de Precios"])
     seleccion = st.sidebar.radio("Navegación:", modulos)
     
@@ -27,10 +33,9 @@ if gestionar_login():
         st.session_state["autenticado"] = False
         st.rerun()
 
+    # Enrutamiento a las pestañas correspondientes
     if seleccion == "Investigación de Mercado":
-        from modules.market_intel import mostrar_investigacion
         mostrar_investigacion()
         
-    # 2. Reemplazamos el texto genérico por la función real
     elif seleccion == "Fijación de Precios":
         mostrar_fijacion_precios()
