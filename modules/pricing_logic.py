@@ -6,40 +6,44 @@ from io import BytesIO
 def mostrar_fijacion_precios():
     st.header("💰 Módulo de Fijación de Precios")
     
-    # 1. SELECCIÓN DE PRODUCTOS (Lógica de extracción blindada)
+    # 1. RECUPERACIÓN CRÍTICA DE DESCRIPCIONES
     if 'resultados_investigacion' in st.session_state:
         with st.expander("📥 Selección de Productos", expanded=True):
             df_invest = pd.DataFrame(st.session_state['resultados_investigacion'])
             
-            # Limpieza robusta para recuperar descripciones
-            df_visual = pd.DataFrame()
-            df_visual['Código'] = df_invest['Original (Würth)'].astype(str).apply(lambda x: x.split()[0] if len(x.split()) > 0 else "S/C")
-            # Recuperamos la descripción completa después del primer espacio
-            df_visual['Descripción'] = df_invest['Original (Würth)'].astype(str).apply(lambda x: " ".join(x.split()[1:]) if len(x.split()) > 1 else "Sin descripción")
+            # Forzamos la conversión a string y manejamos nulos para evitar el AttributeError
+            df_invest['Original (Würth)'] = df_invest['Original (Würth)'].astype(str).fillna("Sin Datos")
+            
+            def separar_datos(celda):
+                partes = celda.split(' ', 1)
+                codigo = partes[0] if len(partes) > 0 else "S/C"
+                # Limpiamos saltos de línea para que la descripción no rompa la tabla
+                descripcion = partes[1].split('\n')[0] if len(partes) > 1 else "Descripción no encontrada"
+                return pd.Series([codigo, descripcion])
+
+            df_visual = df_invest['Original (Würth)'].apply(separar_datos)
+            df_visual.columns = ['Código', 'Descripción']
             df_display = df_visual.drop_duplicates()
 
             seleccion = st.dataframe(
-                df_display, use_container_width=True, hide_index=True,
-                on_select="rerun", selection_mode="multi-row"
+                df_display, 
+                use_container_width=True, 
+                hide_index=True,
+                on_select="rerun", 
+                selection_mode="multi-row"
             )
             
             indices = seleccion.selection.rows
             if indices:
                 codigos_sel = df_display.iloc[indices]['Código'].tolist()
-                # Filtramos garantizando que coincidan los códigos
-                st.session_state['df_mkt_actual'] = df_invest[df_invest['Original (Würth)'].astype(str).str.contains('|'.join(codigos_sel))]
+                # Filtro robusto para asegurar que los datos de mercado se vinculen bien
+                st.session_state['df_mkt_actual'] = df_invest[df_invest['Original (Würth)'].str.contains('|'.join(codigos_sel))]
                 st.session_state['nombres_seleccionados'] = df_display.iloc[indices]['Descripción'].tolist()
 
     df_mkt = st.session_state.get('df_mkt_actual', pd.DataFrame())
-    
-    # Inicialización de variables de seguridad
-    estrategia_sug = "Pendiente de datos"
-    p_final_con_iva = 0.0
-    es_contra_premium = False
-    
     st.divider()
 
-    # 2. VARIABLES COMERCIALES
+    # 2. VARIABLES DE COSTO Y MARGEN
     col_c, col_e = st.columns(2)
     with col_c:
         st.subheader("📦 Costo de Importación")
@@ -53,74 +57,78 @@ def mostrar_fijacion_precios():
         margen_objetivo = st.slider("Margen de Utilidad Deseado (%)", 0, 100, 35)
         iva = st.checkbox("Incluir IVA Uruguay (22%)", value=True)
 
+    # 3. LÓGICA DE PRECIO Y ESTRATEGIA (Inicialización Segura)
     precio_base_neto = c_cif / (1 - (margen_objetivo / 100)) if margen_objetivo < 100 else c_cif
+    estrategia_sug = "Basado en Costo"
+    es_premium = False
 
-    # 3. MOTOR DE DECISIÓN (Basado en Calidad de la IA)
     if not df_mkt.empty:
         precios_ref = pd.to_numeric(df_mkt['P. Minorista'], errors='coerce').dropna().tolist()
         if precios_ref:
             promedio_mkt = sum(precios_ref) / len(precios_ref)
-            es_contra_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False))
-            dif_vs_mkt = ((precio_base_neto / promedio_mkt) - 1) * 100
-
-            if es_contra_premium:
+            es_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False))
+            
+            if es_premium:
                 estrategia_sug = "Paridad Competitiva"
-                # Forzamos la sugerencia al promedio si hay marcas pro
-                precio_base_neto = promedio_mkt
-            elif dif_vs_mkt > 15: estrategia_sug = "Descreme"
-            elif dif_vs_mkt < -15: estrategia_sug = "Penetración"
-            else: estrategia_sug = "Paridad de Mercado"
+                precio_base_neto = promedio_mkt # Ajuste automático por calidad
+            elif (precio_base_neto / promedio_mkt) > 1.15:
+                estrategia_sug = "Descreme"
+            elif (precio_base_neto / promedio_mkt) < 0.85:
+                estrategia_sug = "Penetración"
+            else:
+                estrategia_sug = "Paridad de Mercado"
 
     p_final_con_iva = precio_base_neto * 1.22 if iva else precio_base_neto
 
-    # 4. MAPA DE POSICIONAMIENTO PREMIUM (Estilo Dispersión Dinámica)
+    # 4. GRÁFICO DE DISPERSIÓN ESTILO "MAPA ESTRATÉGICO"
     if not df_mkt.empty and not df_mkt['P. Minorista'].isnull().all():
         st.subheader(f"📊 Mapa de Posicionamiento: {estrategia_sug}")
         
-        # Preparación de Nube de Datos
+        # Construcción de la Nube de Competencia
         df_scatter = df_mkt[['Competidor', 'P. Minorista']].copy()
         df_scatter.columns = ['Vendedor', 'Precio']
         df_scatter['Precio'] = pd.to_numeric(df_scatter['Precio'], errors='coerce')
-        df_scatter['Tipo'] = 'Competencia'
+        df_scatter['Marca'] = 'Competencia'
         
-        # Inserción destacada de Würth
-        prop_row = pd.DataFrame({'Vendedor': ['PROPUESTA WÜRTH'], 'Precio': [precio_base_neto], 'Tipo': ['Würth']})
+        # Punto Würth (Rojo y Grande)
+        prop_row = pd.DataFrame({'Vendedor': ['WÜRTH (Propuesta)'], 'Precio': [precio_base_neto], 'Marca': ['Würth']})
         df_scatter = pd.concat([df_scatter, prop_row], ignore_index=True)
 
         fig = px.scatter(
-            df_scatter, x="Precio", y="Vendedor", color="Tipo",
+            df_scatter, 
+            x="Precio", 
+            y="Vendedor", 
+            color="Marca",
+            size=df_scatter['Marca'].map({'Competencia': 12, 'Würth': 40}),
             color_discrete_map={'Competencia': '#3498db', 'Würth': '#e74c3c'},
-            size=df_scatter['Tipo'].map({'Competencia': 12, 'Würth': 35}), # Burbuja roja dominante
-            template="plotly_white"
+            template="plotly_white",
+            hover_name="Vendedor"
         )
         
-        # Líneas de referencia estratégicas
+        # Líneas Guía: Suelo, Techo y Media
         fig.add_vline(x=min(precios_ref), line_dash="dash", line_color="#95a5a6", annotation_text="Suelo")
         fig.add_vline(x=max(precios_ref), line_dash="dash", line_color="#95a5a6", annotation_text="Techo")
         fig.add_vline(x=promedio_mkt, line_width=2, line_color="#2ecc71", annotation_text="Media Mercado")
         
-        fig.update_layout(showlegend=False, height=500, margin=dict(l=20, r=20, t=40, b=20))
+        fig.update_layout(showlegend=False, height=500, margin=dict(l=10, r=10, t=50, b=10))
         st.plotly_chart(fig, use_container_width=True)
 
-        # Análisis narrativo del Cerebro
-        st.info(f"💡 **Análisis:** " + 
-                (f"Al competir contra marcas Premium, se sugiere **Paridad**. " if es_contra_premium else f"Se sugiere **{estrategia_sug}**. ") + 
-                "Tu posición está marcada por la burbuja roja frente al ecosistema de precios detectado.")
+        st.info(f"💡 **Se sugiere {estrategia_sug}:** La burbuja roja indica tu posición frente a la masa de precios detectada.")
 
     # 5. RESULTADOS Y EXPORTACIÓN
     st.divider()
     r1, r2, r3 = st.columns(3)
     r1.metric("Costo CIF", f"{c_cif:,.2f}")
-    r2.metric("PVP Final", f"{p_final_con_iva:,.2f}")
+    r2.metric("PVP Final (IVA)", f"{p_final_con_iva:,.2f}")
     m_real = ((precio_base_neto - c_cif) / precio_base_neto * 100) if precio_base_neto > 0 else 0
     r3.metric("Margen Real", f"{m_real:.1f}%")
 
     if st.button("📥 Exportar Análisis"):
         output = BytesIO()
         df_res = pd.DataFrame({
-            "Parámetro": ["Productos Seleccionados", "Costo CIF", "Precio Sugerido", "Estrategia"],
-            "Valor": [", ".join(st.session_state.get('nombres_seleccionados', [])), c_cif, p_final_con_iva, estrategia_sug]
+            "Dato": ["Productos", "CIF", "Estrategia Sugerida", "PVP Final", "Margen %"],
+            "Valor": [", ".join(st.session_state.get('nombres_seleccionados', [])), c_cif, estrategia_sug, p_final_con_iva, f"{m_real:.1f}%"]
         })
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df_res.to_excel(writer, index=False)
-        st.download_button("💾 Bajar Excel", output.getvalue(), "Pricing_Wuerth_Scatter.xlsx")
+        st.download_button("💾 Bajar Excel", output.getvalue(), "Analisis_Wuerth.xlsx")
