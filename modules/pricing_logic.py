@@ -5,38 +5,51 @@ from io import BytesIO
 def mostrar_fijacion_precios():
     st.header("💰 Módulo de Fijación de Precios")
     
-    # 1. VISOR Y SELECCIÓN
+    # 1. VISOR Y SELECCIÓN (BLINDADO)
     if 'resultados_investigacion' in st.session_state:
-        df_invest = pd.DataFrame(st.session_state['resultados_investigacion'])
+        datos = st.session_state['resultados_investigacion']
         
-        with st.expander("📊 Vista Previa de la Investigación", expanded=True):
-            st.dataframe(df_invest, use_container_width=True, hide_index=True)
+        # Validamos que los datos existan y no estén vacíos
+        if isinstance(datos, (list, dict, pd.DataFrame)) and len(datos) > 0:
+            df_invest = pd.DataFrame(datos)
             
-            st.subheader("📥 Selección de Productos")
-            col_id = next((c for c in df_invest.columns if "Original" in c or "Würth" in c), df_invest.columns[0])
-            
-            df_sel = pd.DataFrame()
-            df_sel['Código'] = df_invest[col_id].astype(str).str.split().str[0]
-            
-            if 'ADN Identificado' in df_invest.columns:
-                df_sel['Descripción'] = df_invest['ADN Identificado'].fillna("Sin ADN")
+            # Segunda barrera: Aseguramos que el DataFrame tenga columnas reales
+            if not df_invest.empty and len(df_invest.columns) > 0:
+                with st.expander("📊 Vista Previa de la Investigación", expanded=True):
+                    st.dataframe(df_invest, use_container_width=True, hide_index=True)
+                    
+                    st.subheader("📥 Selección de Productos")
+                    # Esta es la línea que fallaba (ahora está protegida)
+                    col_id = next((c for c in df_invest.columns if "Original" in c or "Würth" in c), df_invest.columns[0])
+                    
+                    df_sel = pd.DataFrame()
+                    df_sel['Código'] = df_invest[col_id].astype(str).str.split().str[0]
+                    
+                    if 'ADN Identificado' in df_invest.columns:
+                        df_sel['Descripción'] = df_invest['ADN Identificado'].fillna("Sin ADN")
+                    else:
+                        df_sel['Descripción'] = df_invest[col_id].astype(str).str.split(n=1).str[1].str.split('\n').str[0]
+
+                    df_sel = df_sel.drop_duplicates()
+
+                    seleccion = st.dataframe(
+                        df_sel, use_container_width=True, hide_index=True,
+                        on_select="rerun", selection_mode="multi-row"
+                    )
+                    
+                    indices = seleccion.selection.rows
+                    if indices:
+                        codigos = df_sel.iloc[indices]['Código'].tolist()
+                        mask = df_invest[col_id].astype(str).str.startswith(tuple(codigos))
+                        st.session_state['df_mkt_actual'] = df_invest[mask]
+                        st.session_state['precios_mkt'] = pd.to_numeric(df_invest[mask]['P. Minorista'], errors='coerce').dropna().tolist()
+                        st.session_state['nombres_seleccionados'] = df_sel.iloc[indices]['Descripción'].tolist()
             else:
-                df_sel['Descripción'] = df_invest[col_id].astype(str).str.split(n=1).str[1].str.split('\n').str[0]
-
-            df_sel = df_sel.drop_duplicates()
-
-            seleccion = st.dataframe(
-                df_sel, use_container_width=True, hide_index=True,
-                on_select="rerun", selection_mode="multi-row"
-            )
-            
-            indices = seleccion.selection.rows
-            if indices:
-                codigos = df_sel.iloc[indices]['Código'].tolist()
-                mask = df_invest[col_id].astype(str).str.startswith(tuple(codigos))
-                st.session_state['df_mkt_actual'] = df_invest[mask]
-                st.session_state['precios_mkt'] = pd.to_numeric(df_invest[mask]['P. Minorista'], errors='coerce').dropna().tolist()
-                st.session_state['nombres_seleccionados'] = df_sel.iloc[indices]['Descripción'].tolist()
+                st.warning("⚠️ Error de formato: El archivo de investigación no contiene columnas legibles.")
+        else:
+            st.info("ℹ️ La IA no encontró competidores en la última búsqueda. Vuelve a intentarlo.")
+    else:
+        st.info("ℹ️ Realiza una investigación de mercado para comenzar el análisis de precios.")
 
     precios_ref = st.session_state.get('precios_mkt', [])
     df_mkt = st.session_state.get('df_mkt_actual', pd.DataFrame())
@@ -60,37 +73,34 @@ def mostrar_fijacion_precios():
         aplicar_iva = st.checkbox("Incluir IVA Uruguay (22%)", value=True)
 
     # 3. MOTOR DE CÁLCULO DINÁMICO
+    divisor = (1 - (margen / 100)) if margen < 100 else 0.0001
+    
     if estrategia_manual == "Basado en costo" or not precios_ref:
-        divisor = (1 - (margen / 100)) if margen < 100 else 0.0001
         precio_neto = c_cif / divisor
     elif estrategia_manual == "Paridad de mercado":
         precio_neto = promedio_mkt
     elif estrategia_manual == "Descreme":
-        precio_neto = max(precios_ref) * 1.10 if precios_ref else c_cif
+        precio_neto = max(precios_ref) * 1.10 if precios_ref else c_cif / divisor
     elif estrategia_manual == "Penetración":
-        precio_neto = min(precios_ref) * 0.90 if precios_ref else c_cif
+        precio_neto = min(precios_ref) * 0.90 if precios_ref else c_cif / divisor
 
-    # --- LÓGICA DE IVA ---
-    if aplicar_iva:
-        precio_final_con_impuestos = precio_neto * 1.22
-    else:
-        precio_final_con_impuestos = precio_neto
+    # Lógica de IVA
+    precio_final_con_impuestos = precio_neto * 1.22 if aplicar_iva else precio_neto
 
     # 4. ESTRATEGIA SUGERIDA POR EL SISTEMA
     if not df_mkt.empty and precios_ref:
         st.subheader("🧠 Análisis del Sistema")
         es_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False))
-        nombres_rivales = df_mkt['Competidor'].unique().tolist()
         
         if es_premium:
-            st.success(f"**Estrategia de fijación de precio sugerida: Paridad Competitiva (Segmento Premium)**")
-            st.info(f"Se recomienda esta estrategia debido a la presencia de marcas líderes como {', '.join(nombres_rivales[:2])}...")
+            st.success("**Estrategia de fijación de precio sugerida: Paridad Competitiva (Segmento Premium)**")
+            st.info("Se recomienda esta estrategia debido a la presencia de marcas líderes. Würth debe posicionarse igualando el precio de referencia.")
         elif (c_cif / promedio_mkt) < 0.5:
-            st.warning(f"**Estrategia de fijación de precio sugerida: Penetración / Crecimiento Agresivo**")
-            st.info("Su costo de importación actual es significativamente bajo en comparación con el promedio...")
+            st.warning("**Estrategia de fijación de precio sugerida: Penetración / Crecimiento Agresivo**")
+            st.info("Su costo de importación es bajo frente al mercado. Ventaja para ganar cuota rápidamente.")
         else:
-            st.info(f"**Estrategia de fijación de precio sugerida: Descreme Controlado**")
-            st.info("Basado en la superioridad de marca de Würth frente a los competidores estándar...")
+            st.info("**Estrategia de fijación de precio sugerida: Descreme Controlado**")
+            st.info("Basado en la superioridad de marca de Würth, se sugiere un precio superior al promedio.")
 
     # 5. GRÁFICO DE BARRAS COMPARATIVO
     if precios_ref:
@@ -104,7 +114,6 @@ def mostrar_fijacion_precios():
     # 6. RESULTADOS FINALES
     st.divider()
     m_real = ((precio_neto - c_cif) / precio_neto * 100) if precio_neto > 0 else 0
-
     res1, res2, res3 = st.columns(3)
     res1.metric("Costo CIF Final", f"{c_cif:,.2f}")
     res2.metric("PVP Final (Inc. IVA)" if aplicar_iva else "PVP Final (Neto)", f"{precio_final_con_impuestos:,.2f}")
