@@ -6,38 +6,54 @@ from io import BytesIO
 def mostrar_fijacion_precios():
     st.header("💰 Módulo de Fijación de Precios")
     
-    # 1. VISOR Y SELECCIÓN
-    if 'resultados_investigacion' in st.session_state:
+    # --- BOTÓN DE REINICIO (Solución al IndexError) ---
+    with st.sidebar:
+        st.divider()
+        if st.button("🧹 Nueva Investigación (Limpiar Todo)", use_container_width=True, type="primary"):
+            # Borramos las variables de sesión que causan el conflicto
+            keys_to_clear = ['resultados_investigacion', 'df_mkt_actual', 'precios_mkt', 'nombres_seleccionados']
+            for key in keys_to_clear:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.rerun()
+
+    # 1. VISOR Y SELECCIÓN (Blindaje contra DataFrame vacío)
+    if 'resultados_investigacion' in st.session_state and len(st.session_state['resultados_investigacion']) > 0:
         df_invest = pd.DataFrame(st.session_state['resultados_investigacion'])
         
         with st.expander("📊 Vista Previa de la Investigación", expanded=True):
             st.dataframe(df_invest, use_container_width=True, hide_index=True)
             
             st.subheader("📥 Selección de Productos")
-            col_id = next((c for c in df_invest.columns if "Original" in c or "Würth" in c), df_invest.columns[0])
             
-            df_sel = pd.DataFrame()
-            df_sel['Código'] = df_invest[col_id].astype(str).str.split().str[0]
-            
-            if 'ADN Identificado' in df_invest.columns:
-                df_sel['Descripción'] = df_invest['ADN Identificado'].fillna("Sin ADN")
-            else:
-                df_sel['Descripción'] = df_invest[col_id].astype(str).str.split(n=1).str[1].str.split('\n').str[0]
+            # Blindaje: Solo buscamos columnas si el DF tiene columnas
+            if not df_invest.empty and len(df_invest.columns) > 0:
+                col_id = next((c for c in df_invest.columns if "Original" in c or "Würth" in c), df_invest.columns[0])
+                
+                df_sel = pd.DataFrame()
+                df_sel['Código'] = df_invest[col_id].astype(str).str.split().str[0]
+                
+                if 'ADN Identificado' in df_invest.columns:
+                    df_sel['Descripción'] = df_invest['ADN Identificado'].fillna("Sin ADN")
+                else:
+                    df_sel['Descripción'] = df_invest[col_id].astype(str).str.split(n=1).str[1].str.split('\n').str[0]
 
-            df_sel = df_sel.drop_duplicates()
+                df_sel = df_sel.drop_duplicates()
 
-            seleccion = st.dataframe(
-                df_sel, use_container_width=True, hide_index=True,
-                on_select="rerun", selection_mode="multi-row"
-            )
-            
-            indices = seleccion.selection.rows
-            if indices:
-                codigos = df_sel.iloc[indices]['Código'].tolist()
-                mask = df_invest[col_id].astype(str).str.startswith(tuple(codigos))
-                st.session_state['df_mkt_actual'] = df_invest[mask]
-                st.session_state['precios_mkt'] = pd.to_numeric(df_invest[mask]['P. Minorista'], errors='coerce').dropna().tolist()
-                st.session_state['nombres_seleccionados'] = df_sel.iloc[indices]['Descripción'].tolist()
+                seleccion = st.dataframe(
+                    df_sel, use_container_width=True, hide_index=True,
+                    on_select="rerun", selection_mode="multi-row"
+                )
+                
+                indices = seleccion.selection.rows
+                if indices:
+                    codigos = df_sel.iloc[indices]['Código'].tolist()
+                    mask = df_invest[col_id].astype(str).str.startswith(tuple(codigos))
+                    st.session_state['df_mkt_actual'] = df_invest[mask]
+                    st.session_state['precios_mkt'] = pd.to_numeric(df_invest[mask]['P. Minorista'], errors='coerce').dropna().tolist()
+                    st.session_state['nombres_seleccionados'] = df_sel.iloc[indices]['Descripción'].tolist()
+    else:
+        st.info("ℹ️ Realiza una investigación de mercado para comenzar el análisis de precios. Si acabas de terminar una, asegúrate de haber seleccionado los productos.")
 
     precios_ref = st.session_state.get('precios_mkt', [])
     df_mkt = st.session_state.get('df_mkt_actual', pd.DataFrame())
@@ -60,7 +76,7 @@ def mostrar_fijacion_precios():
         estrategia_manual = st.selectbox("Simular Estrategia Kotler", ["Basado en costo", "Paridad de mercado", "Descreme", "Penetración"])
         aplicar_iva = st.checkbox("Incluir IVA Uruguay (22%)", value=True)
 
-    # 3. MOTOR DE CÁLCULO DINÁMICO
+    # 3. MOTOR DE CÁLCULO
     if estrategia_manual == "Basado en costo" or not precios_ref:
         divisor = (1 - (margen / 100)) if margen < 100 else 0.0001
         precio_neto = c_cif / divisor
@@ -71,30 +87,28 @@ def mostrar_fijacion_precios():
     elif estrategia_manual == "Penetración":
         precio_neto = min(precios_ref) * 0.90 if precios_ref else c_cif
 
-    # --- LÓGICA DE IVA CORREGIDA ---
-    # Calculamos el precio final sumando el 22% solo si el checkbox está activo
     if aplicar_iva:
         precio_final_con_impuestos = precio_neto * 1.22
     else:
         precio_final_con_impuestos = precio_neto
 
-    # 4. ESTRATEGIA SUGERIDA POR EL SISTEMA
+    # 4. ESTRATEGIA SUGERIDA
     if not df_mkt.empty and precios_ref:
         st.subheader("🧠 Análisis del Sistema")
-        es_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False))
-        nombres_rivales = df_mkt['Competidor'].unique().tolist()
+        es_premium = any(df_mkt['Calidad'].astype(str).str.contains('Premium|Líder|Alto', case=False, na=False)) if 'Calidad' in df_mkt.columns else False
+        nombres_rivales = df_mkt['Competidor'].unique().tolist() if 'Competidor' in df_mkt.columns else []
         
         if es_premium:
             st.success(f"**Estrategia de fijación de precio sugerida: Paridad Competitiva (Segmento Premium)**")
-            st.info(f"Se recomienda esta estrategia debido a la presencia de marcas líderes como {', '.join(nombres_rivales[:2])}...")
+            st.info(f"Se recomienda esta estrategia debido a la presencia de marcas líderes. Würth debe posicionarse igualando el precio de referencia para validar su calidad técnica.")
         elif (c_cif / promedio_mkt) < 0.5:
             st.warning(f"**Estrategia de fijación de precio sugerida: Penetración / Crecimiento Agresivo**")
-            st.info("Su costo de importación actual es significativamente bajo en comparación con el promedio...")
+            st.info("Su costo de importación es bajo frente al mercado. Tiene ventaja para ganar cuota rápidamente.")
         else:
             st.info(f"**Estrategia de fijación de precio sugerida: Descreme Controlado**")
-            st.info("Basado en la superioridad de marca de Würth frente a los competidores estándar...")
+            st.info("Basado en la superioridad de marca de Würth, se sugiere un precio superior al promedio.")
 
-    # 5. GRÁFICO DE BARRAS COMPARATIVO
+    # 5. GRÁFICO
     if precios_ref:
         st.subheader("🏁 Análisis Comparativo")
         chart_data = pd.DataFrame({
@@ -111,13 +125,3 @@ def mostrar_fijacion_precios():
     res1.metric("Costo CIF Final", f"{c_cif:,.2f}")
     res2.metric("PVP Final (Inc. IVA)" if aplicar_iva else "PVP Final (Neto)", f"{precio_final_con_impuestos:,.2f}")
     res3.metric("Margen Real", f"{m_real:.1f}%")
-
-    if st.button("📥 Exportar Informe Final"):
-        output = BytesIO()
-        df_res = pd.DataFrame({
-            "Parámetro": ["Costo CIF", "Estrategia Simulada", "PVP Final", "IVA Aplicado", "Margen Real %"],
-            "Valor": [c_cif, estrategia_manual, precio_final_con_impuestos, "Sí (22%)" if aplicar_iva else "No", f"{m_real:.1f}%"]
-        })
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df_res.to_excel(writer, index=False)
-        st.download_button("💾 Guardar Reporte", output.getvalue(), "Estrategia_Wuerth.xlsx")
