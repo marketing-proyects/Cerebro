@@ -5,7 +5,7 @@ import io
 import plotly.express as px
 
 def mostrar_modulo_overstock():
-    st.header("📊 Gestión de Sobre-stock y Recuperación de Capital")
+    st.header("📊 Gestión de Overstock / Recuperación de Capital")
     st.info("Análisis capital inmovilizado basado en la Curva de Rotación UY.")
 
     # NOMENCLATURA REAL DEDUCIDA
