@@ -7,8 +7,7 @@ def mostrar_modulo_overstock():
     st.header("📊 Gestión de Sobre-stock y Recuperación de Capital")
     st.info("Análisis de inercia de venta para identificar capital inmovilizado.")
 
-    # 1. Glosario Técnico
-    
+   # 1. Glosario Técnico
     with st.expander("ℹ️ VER LEYENDA DE CATEGORÍAS (ABC/DEGN)"):
         st.markdown("""
         | Cat | Descripción | Estrategia para Recuperar Capital |
