@@ -5,10 +5,9 @@ import io
 import plotly.express as px
 
 def mostrar_modulo_overstock():
-    st.header("📊 Módulo de Análisis de Overstock / Recuperación de Capital") 
-    st.info("Análisis capital inmovilizado basado en la Curva de Rotación UY.")
+    st.header("📊 Análisis de Overstock") 
+    st.info("Diagnóstico de capital inmovilizado basado en la Curva de Rotación UY.")
 
-    # NOMENCLATURA ANALIZADA
     NOMENCLATURA = {
         'A': 'A - Consumibles (Alta Rotación)',
         'B': 'B - Insumos (Rotación Constante)',
@@ -21,28 +20,27 @@ def mostrar_modulo_overstock():
         'S/D': 'S/D - Sin Datos'
     }
 
-    # --- AYUDA 1: Categorías ---
-    with st.expander("ℹ️ 1. LEYENDA TÉCNICA (Niveles de Rotación UY)"):
-        st.markdown("""
-        | Cat | Comportamiento del Capital | Acción Sugerida |
-        | :--- | :--- | :--- |
-        | **A / B** | **Liquidez Inmediata:** Alta rotación. | No liquidar. Asegurar reposición. |
-        | **C / D** | **Inversión Moderada:** Maquinaria y Químicos. | Ofertas de volumen para evitar excedentes. |
-        | **E / F** | **Capital Pesado:** Herramientas de alto valor. | **Acción Comercial:** Venta técnica dirigida. |
-        | **G** | **Costo Hundido:** Sin ventas o en Outlet. | **Liquidación:** Recuperar cualquier % de capital. |
-        | **N** | **Fase Inicial:** Productos nuevos. | Monitorear adopción del mercado. |
-        """)
-
-    # --- AYUDA 2: Semáforo ---
-    with st.expander("🚦 2. SEMÁFORO DE SALUD DE INVENTARIO"):
-        st.markdown("""
-        | Estado | Condición | Impacto en Balance |
-        | :--- | :--- | :--- |
-        | 🔴 **RIESGO CONTABLE** | > 12 meses de stock | Requiere provisión por obsolescencia. |
-        | ⚪ **SIN MOVIMIENTO** | Stock > 0 y Venta = 0 | Capital estancado. Máxima prioridad. |
-        | 🟡 **EXCEDENTE** | 6 a 12 meses de stock | Inversión por encima del flujo ideal. |
-        | 🟢 **SALUDABLE** | < 6 meses de stock | Ciclo de venta y reposición sano. |
-        """)
+    # --- AYUDA: Categorías y Semáforo ---
+    c_h1, c_h2 = st.columns(2)
+    with c_h1:
+        with st.expander("ℹ️ LEYENDA DE ROTACIÓN"):
+            st.markdown("""
+            | Cat | Tipo de Producto |
+            | :--- | :--- |
+            | **A / B** | Alta Rotación. |
+            | **C / D** | Rotación Media. |
+            | **E / F** | Rotación Baja (Caro). |
+            | **G** | Inactivos / Outlet. |
+            """)
+    with c_h2:
+        with st.expander("🚦 SEMÁFORO DE SALUD"):
+            st.markdown("""
+            | Estado | Condición |
+            | :--- | :--- |
+            | 🔴 **RIESGO** | > 12 meses stock |
+            | ⚪ **PARADO** | Stock > 0, Venta 0 |
+            | 🟡 **ALERTA** | 6-12 meses stock |
+            """)
 
     archivo = st.file_uploader("Cargar reporte de Sobre-stock", type=['xlsx', 'csv'], key="overstock_forense")
 
@@ -51,7 +49,7 @@ def mostrar_modulo_overstock():
             df = pd.read_csv(archivo) if archivo.name.endswith('.csv') else pd.read_excel(archivo)
             df.columns = df.columns.str.strip()
 
-            # Limpieza de numéricos
+            # Limpieza
             for col in ['ATP-quantity', 'Meses de stock ATP', 'Importe disponible para acciones', 'Promedio de venta mensual']:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(float)
@@ -64,12 +62,14 @@ def mostrar_modulo_overstock():
                 raiz = partes[0].replace(" ", "") if len(partes) > 1 else txt.replace(" ", "")
                 ue = partes[-1] if len(partes) > 1 else "1"
                 return pd.Series([raiz, ue])
+            
             df[['Cod_Limpio', 'UE']] = df['Material'].apply(procesar_ue)
 
             def definir_salud(row):
                 if row['ATP-quantity'] > 0 and row['Promedio de venta mensual'] == 0:
                     return "⚪ SIN MOVIMIENTO"
                 return "🔴 RIESGO CONTABLE" if row['Meses de stock ATP'] > 12 else ("🟡 EXCEDENTE" if row['Meses de stock ATP'] >= 6 else "🟢 SALUDABLE")
+            
             df['Salud_Inventario'] = df.apply(definir_salud, axis=1)
 
             # Filtros
@@ -89,39 +89,31 @@ def mostrar_modulo_overstock():
             
             df_final = df[mask].copy()
 
-            # --- AGREGADO: Almacenar los datos filtrados para la Matriz de Decisiones ---
+            # --- GUARDADO PARA LA MATRIZ ---
             st.session_state['data_overstock'] = df_final
 
-            # Métricas
+            # Métricas y Gráfico
             st.markdown("---")
             m1, m2, m3 = st.columns(3)
             m1.metric("Lotes Críticos", len(df_final))
             cap_inv = df_final['Importe disponible para acciones'].sum()
             m2.metric("Capital Inmovilizado", f"$ {cap_inv:,.0f}")
-            m3.metric("Potencial Recuperación", f"$ {(cap_inv * 0.5):,.0f}")
+            m3.metric("Potencial Recuperación (50%)", f"$ {(cap_inv * 0.5):,.0f}")
 
-            # Gráfico de Torta Forense
             if not df_final.empty:
-                st.subheader("📊 Distribución del Capital Atrapado")
                 df_grafico = df_final.groupby('Indicador ABC')['Importe disponible para acciones'].sum().reset_index()
                 df_grafico['Nivel'] = df_grafico['Indicador ABC'].map(NOMENCLATURA).fillna(df_grafico['Indicador ABC'])
-                
-                fig = px.pie(df_grafico, values='Importe disponible para acciones', names='Nivel', hole=0.4,
-                             color_discrete_sequence=px.colors.sequential.Reds_r)
-                fig.update_traces(textposition='inside', textinfo='percent+label')
+                fig = px.pie(df_grafico, values='Importe disponible para acciones', names='Nivel', hole=0.4, color_discrete_sequence=px.colors.sequential.Reds_r)
                 st.plotly_chart(fig, use_container_width=True)
 
-            # Tabla
-            st.subheader("📋 Artículos Analizados")
+            # Tabla y Descarga
             cols_ver = ['Salud_Inventario', 'Cod_Limpio', 'Descripción del material', 'UE', 'ATP-quantity', 'Meses de stock ATP', 'Importe disponible para acciones', 'Indicador ABC']
-            df_final = df_final.sort_values(by='Importe disponible para acciones', ascending=False)
             st.dataframe(df_final[cols_ver], use_container_width=True, hide_index=True)
 
-            if not df_final.empty:
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df_final[cols_ver].to_excel(writer, index=False, sheet_name='Overstock')
-                st.download_button(label="📥 Exportar Excel", data=output.getvalue(), file_name="Overstock_Acciones_UY.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df_final[cols_ver].to_excel(writer, index=False, sheet_name='Overstock')
+            st.download_button(label="📥 Exportar Excel", data=output.getvalue(), file_name="Overstock_Analizado.xlsx", use_container_width=True)
 
         except Exception as e:
             st.error(f"Error: {e}")
