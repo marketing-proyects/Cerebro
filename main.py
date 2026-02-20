@@ -51,7 +51,7 @@ if gestionar_login():
         st.session_state["autenticado"] = False
         st.rerun()
 
-    # --- AQUÍ VA EL ENRUTAMIENTO (Lo que me preguntaste) ---
+    # ---ENRUTAMIENTO---
     
     if seleccion == "Investigación de Mercado":
         mostrar_investigacion()
@@ -62,9 +62,11 @@ if gestionar_login():
     elif seleccion == "Liquidación (Prox. vencimientos)": 
         mostrar_modulo_liquidation() 
 
-    elif seleccion == "Gestión de Sobre-stock":
+    elif seleccion == "Overstock":
         mostrar_modulo_overstock()
 
+    elif seleccion == "Matriz de Decisiones":
+        mostrar_matriz_decisiones()
     elif seleccion == "Matriz de Decisiones":
         mostrar_matriz_decisiones()
     
