@@ -2,14 +2,14 @@ import streamlit as st
 import pandas as pd
 import re
 import io
-import plotly.express as px  # Para el gráfico dinámico
+import plotly.express as px
 
 def mostrar_modulo_overstock():
     st.header("📊 Gestión de Sobre-stock y Recuperación de Capital")
     st.info("Identificación de capital inmovilizado y riesgo de pérdida contable.")
 
-    # 1. CUADRO DE NOMENCLATURA
-    with st.expander("ℹ️ VER LEYENDA DE CATEGORÍAS (ABC/DEGN)"):
+    # --- BLOQUE DE AYUDA 1: Categorías (Quién es el producto) ---
+    with st.expander("ℹ️ 1. LEYENDA DE CATEGORÍAS (ABC/DEGN)"):
         st.markdown("""
         | Cat | Descripción | Estrategia para Recuperar Capital |
         | :--- | :--- | :--- |
@@ -18,11 +18,22 @@ def mostrar_modulo_overstock():
         | **C** | **Baja Rotación:** Capital lento. | Ofertas especiales para liberar espacio en depósito. |
         | **D** | **Residual:** Capital estancado. | **Acción Agresiva:** Recuperar el costo (Cash-out). |
         | **E** | **Exhibidores:** Activos de Mkt. | Sacar del depósito y enviar a clientes estratégicos. |
-        | **G** | **Gifts / Regalos:** Costo hundido. | Usar como 'gancho' para vender el sobre-stock de Cat C/D. |
-        | **N** | **Nuevos:** Error de previsión. | Evaluar si el mercado aceptó el producto. |
+        | **G** | **Gifts / Regalos:** Costo hundido. | Usar como 'gancho' para vender productos C/D. |
+        | **N** | **Nuevos:** Lanzamientos. | Evaluar si el mercado aceptó el producto. |
         """)
 
-    archivo = st.file_uploader("Cargar reporte de Sobre-stock (Overstock)", type=['xlsx', 'csv'], key="overstock_v_grafico")
+    # --- BLOQUE DE AYUDA 2: Semáforo (Qué tan grave es su stock) ---
+    with st.expander("🚦 2. LÓGICA DEL SEMÁFORO (Meses de Stock)"):
+        st.markdown("""
+        | Estado | Condición | Riesgo Contable |
+        | :--- | :--- | :--- |
+        | 🔴 **RIESGO CONTABLE** | > 12 meses de stock | **Muy Alto:** El capital está "dormido" hace más de un año. |
+        | ⚪ **SIN ROTACIÓN** | Stock > 0 y Venta = 0 | **Extremo:** No hay inercia de venta. Peligro de pérdida total. |
+        | 🟡 **EXCEDENTE** | 6 a 12 meses de stock | **Medio:** Stock por encima de la media de seguridad. |
+        | 🟢 **SALUDABLE** | < 6 meses de stock | **Bajo:** El producto rota dentro de los parámetros normales. |
+        """)
+
+    archivo = st.file_uploader("Cargar reporte de Sobre-stock (Overstock)", type=['xlsx', 'csv'], key="overstock_final_full")
 
     if archivo:
         try:
@@ -47,7 +58,7 @@ def mostrar_modulo_overstock():
 
             df[['Cod_Limpio', 'UE']] = df['Material'].apply(procesar_ue)
 
-            # --- SEMÁFORO FINANCIERO ---
+            # --- LÓGICA DE SEMÁFORO FINANCIERO ---
             def definir_salud(row):
                 if row['ATP-quantity'] > 0 and row['Promedio de venta mensual'] == 0:
                     return "⚪ SIN ROTACIÓN"
@@ -89,31 +100,20 @@ def mostrar_modulo_overstock():
             # --- GRÁFICO DE TORTA: DISTRIBUCIÓN DE CAPITAL ---
             if not df_final.empty:
                 st.subheader("📊 Distribución del Capital Inmovilizado")
-                
-                # Agrupamos por Categoría ABC para el gráfico
                 df_grafico = df_final.groupby('Indicador ABC')['Importe disponible para acciones'].sum().reset_index()
                 
-                # Colores corporativos (Rojo Würth y variaciones)
                 colores = {'A': '#ED1C24', 'B': '#333333', 'C': '#555555', 'D': '#888888', 'E': '#AAAAAA', 'G': '#CCCCCC', 'N': '#EEEEEE', 'S/D': '#000000'}
 
                 fig = px.pie(
-                    df_grafico, 
-                    values='Importe disponible para acciones', 
-                    names='Indicador ABC',
-                    color='Indicador ABC',
-                    color_discrete_map=colores,
-                    hole=0.4, # Lo hacemos tipo "Donut" que es más moderno
+                    df_grafico, values='Importe disponible para acciones', names='Indicador ABC',
+                    color='Indicador ABC', color_discrete_map=colores, hole=0.4
                 )
-                
                 fig.update_traces(textposition='inside', textinfo='percent+label')
-                fig.update_layout(showlegend=True, height=400)
-                
                 st.plotly_chart(fig, use_container_width=True)
 
             # --- TABLA DE RESULTADOS ---
             st.subheader("📋 Detalle de Artículos Estancados")
             cols_ver = ['Salud_Inventario', 'Cod_Limpio', 'Descripción del material', 'UE', 'ATP-quantity', 'Meses de stock ATP', 'Importe disponible para acciones', 'Indicador ABC']
-            
             df_final = df_final.sort_values(by='Importe disponible para acciones', ascending=False)
             st.dataframe(df_final[cols_ver], use_container_width=True, hide_index=True)
 
@@ -133,3 +133,5 @@ def mostrar_modulo_overstock():
 
         except Exception as e:
             st.error(f"Error en el análisis: {e}")
+    else:
+        st.info("Suba el reporte de stock para identificar el capital inmovilizado.")
