@@ -14,8 +14,8 @@ from modules.auth_manager import gestionar_login
 from modules.pricing_logic import mostrar_fijacion_precios
 from modules.market_intel import mostrar_investigacion
 from modules.liquidation_manager import mostrar_modulo_liquidation
-# NUEVA IMPORTACIÓN:
 from modules.overstock_manager import mostrar_modulo_overstock 
+from modules.decision_matrix import mostrar_matriz_decisiones
 
 # 3. ESTILOS CORPORATIVOS
 st.markdown("""
@@ -61,8 +61,11 @@ if gestionar_login():
     elif seleccion == "Liquidación (Prox. vencimientos)": 
         mostrar_modulo_liquidation() 
 
-    elif seleccion == "Gestión de Sobre-stock": # <--- ESTO ES LO QUE UBICAMOS
+    elif seleccion == "Gestión de Sobre-stock":
         mostrar_modulo_overstock()
 
+    elif seleccion == "Matriz de Decisiones":
+        mostrar_matriz_decisiones()
+    
     else:
         st.error("No tienes permisos asignados. Contacta al administrador.")
