@@ -6,7 +6,7 @@ import plotly.express as px
 
 def mostrar_modulo_overstock():
     st.header("📊 Gestión de Sobre-stock y Recuperación de Capital")
-    st.info("Análisis forense de capital inmovilizado basado en la Curva de Rotación UY.")
+    st.info("Análisis capital inmovilizado basado en la Curva de Rotación UY.")
 
     # NOMENCLATURA REAL DEDUCIDA
     NOMENCLATURA = {
