@@ -7,7 +7,7 @@ st.set_page_config(page_title="SISTEMA CEREBRO - WÜRTH", page_icon="👁️‍�
 from modules.auth_manager import gestionar_login
 from modules.pricing_logic import mostrar_fijacion_precios
 from modules.market_intel import mostrar_investigacion
-from modules.liquidation_manager import mostrar_modulo_liquidation ##### NUEVO #####
+from modules.liquidation_manager import mostrar_modulo_liquidation
 
 # 3. Estilos visuales de Würth (Colores corporativos)
 st.markdown("""
@@ -26,7 +26,6 @@ if gestionar_login():
     st.sidebar.divider()
     
     # Menú de navegación
-    # Agregamos "Liquidación" a la lista de módulos por defecto si no existen permisos específicos
     modulos_disponibles = ["Investigación de Mercado", "Fijación de Precios", "Liquidación"] ##### AQUI ACCESO A MODULOS #####
     modulos = st.session_state.get("permisos", modulos_disponibles)
     
