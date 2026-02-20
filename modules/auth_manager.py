@@ -78,7 +78,7 @@ def gestionar_login():
     USUARIOS = {
         "admin": {
             "pass": "123", 
-            "permisos": ["Investigación de Mercado", "Fijación de Precios", "Liquidación (Prox. vencimientos)", "Gestión de Sobre-stock", "Matriz de Decisiones"]
+            "permisos": ["Investigación de Mercado", "Fijación de Precios", "Liquidación (Prox. vencimientos)", "Overstock", "Matriz de Decisiones"]
         },
         "usuario_marketing": {
             "pass": "marketing2026", 
@@ -90,7 +90,7 @@ def gestionar_login():
         },
         "usuario_invitado": {
             "pass": "invitado2026", 
-            "permisos": ["Investigación de Mercado", "Fijación de Precios", "Liquidación (Prox. vencimientos)", "Gestión de Sobre-stock", "Matriz de Decisiones"]
+            "permisos": ["Investigación de Mercado", "Fijación de Precios", "Liquidación (Prox. vencimientos)", "Overstock", "Matriz de Decisiones"]
         }
     }
 
