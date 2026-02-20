@@ -75,10 +75,10 @@ def inyectar_animacion():
 
 def gestionar_login():
     USUARIOS = {
-        "admin": {"pass": "123", "permisos": ["Investigación de Mercado", "Fijación de Precios"]},
-        "mkt_user": {"pass": "wurth2026", "permisos": ["Investigación de Mercado"]},
-        "ventas_user": {"pass": "precios2026", "permisos": ["Fijación de Precios"]},
-        "invitado": {"pass": "colega2026", "permisos": ["Investigación de Mercado"]}
+        "admin": {"pass": "123", "permisos": ["Investigación de Mercado", "Fijación de Precios", "Liquidación"]},
+        "usuario_marketing": {"pass": "marketing2026", "permisos": ["Investigación de Mercado"]},
+        "usuario_director": {"pass": "director2026", "permisos": ["Fijación de Precios"]},
+        "usuario_invitado": {"pass": "invitado2026", "permisos": ["Investigación de Mercado", "Fijación de Precios", "Liquidación"]}
     }
 
     if "autenticado" not in st.session_state:
