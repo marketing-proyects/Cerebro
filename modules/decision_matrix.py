@@ -4,7 +4,7 @@ import io
 
 def mostrar_matriz_decisiones():
     st.header("🎯 Matriz de Decisiones: Consola de Campañas")
-    st.info("Diseñá tus ofertas: Lista (x2.5 PFEP) y Promo (Piso 40% GP). Ambos campos son editables.")
+    st.info("Diseño de Ofertas y Promociones")
 
     # --- 1. MEMORIA DE LA PROPUESTA ---
     if 'propuesta_acumulada' not in st.session_state:
@@ -46,7 +46,7 @@ def mostrar_matriz_decisiones():
     if seleccionados:
         df_sb = df_consolidado[df_consolidado['Descripción del material'].isin(seleccionados)].copy()
         
-        # --- NUEVA LÓGICA DE PRECIOS ---
+        # --- LÓGICA DE PRECIOS ---
         # Precio Lista: x2.5 del costo (60% GP inicial)
         df_sb['Precio_Lista'] = df_sb['PFEP'] * 2.5
         # Precio Promo: Piso de 40% GP (Costo / 0.6)
