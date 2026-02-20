@@ -4,7 +4,7 @@ import re
 
 def mostrar_modulo_liquidation():
     st.header("📦 Módulo de Liquidación Estratégica")
-    st.info("Diagnóstico de Inventario por Lote y Unidad de Empaque (UE).")
+    st.info("Diagnóstico de Inventario por Lote y Unidad de Empaque (UE). Este módulo no utiliza IA.")
 
     archivo = st.file_uploader("Cargar volcado de Vencimientos", type=['xlsx', 'csv'], key="liq_uploader_v_final")
 
@@ -16,19 +16,20 @@ def mostrar_modulo_liquidation():
             else:
                 df = pd.read_excel(archivo)
             
+            # Limpiar nombres de columnas
             df.columns = df.columns.str.strip()
 
-            # --- LIMPIEZA CRÍTICA DE TIPOS DE DATOS ---
-            # Forzamos que estas columnas sean numéricas antes de cualquier operación
-            #errors='coerce' convierte lo que no es número en NaN, luego fillna(0) lo hace 0
-            cols_numericas = ['Vencimiento en meses', 'Meses de stock', 'STOCK ATP', 'Consumo mensual']
-            for col in cols_numericas:
+            # --- LIMPIEZA ULTRA-AGRESIVA (Para evitar el error de comparación) ---
+            cols_a_limpiar = ['Vencimiento en meses', 'Meses de stock', 'STOCK ATP', 'Consumo mensual']
+            for col in cols_a_limpiar:
                 if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                    # Forzamos conversión a string, quitamos todo lo que no sea número o punto, y convertimos a float
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(float)
 
             # --- TRATAMIENTO DE CÓDIGO Y UE ---
             def procesar_codigo_ue(txt):
                 txt = str(txt).strip()
+                # Separar por espacios múltiples (2 o más) para encontrar la UE al final
                 partes = re.split(r'\s{2,}', txt)
                 if len(partes) > 1:
                     raiz = partes[0].replace(" ", "")
@@ -40,16 +41,17 @@ def mostrar_modulo_liquidation():
 
             df[['Cod_Limpio', 'UE']] = df['Material'].apply(procesar_codigo_ue)
 
-            # --- LÓGICA DE SEMÁFORO ---
+            # --- LÓGICA DE SEMÁFORO (Ahora segura entre floats) ---
             def definir_estado(row):
-                # Validamos 'Meses de acción' como texto
-                accion = str(row.get('Meses de acción', '')).strip().lower()
-                vto_m = row['Vencimiento en meses']
-                stk_m = row['Meses de stock']
+                # 'Meses de acción' lo tratamos estrictamente como texto para buscar "fecha vto"
+                accion_txt = str(row.get('Meses de acción', '')).strip().lower()
+                vto_val = float(row['Vencimiento en meses'])
+                stk_val = float(row['Meses de stock'])
                 
-                if 'fecha vto' in accion or (stk_m > 0 and stk_m >= vto_m):
+                # Criterio: Si el sistema ya dice "vto" o si matemáticamente el stock dura más que la vida útil
+                if 'fecha vto' in accion_txt or (stk_val > 0 and stk_val >= vto_val):
                     return "🔴 CRÍTICO"
-                elif accion != 'ok' and stk_m > 0:
+                elif 'ok' not in accion_txt and stk_val > 0:
                     return "🟡 ALERTA"
                 else:
                     return "🟢 ESTABLE"
@@ -78,14 +80,6 @@ def mostrar_modulo_liquidation():
             
             df_final = df[mask].copy()
 
-            # --- MÉTRICAS ---
-            st.markdown("---")
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Lotes en Análisis", len(df_final))
-            m2.metric("Stock ATP", f"{int(df_final['STOCK ATP'].sum()):,}")
-            m3.metric("Consumo Prom.", f"{df_final['Consumo mensual'].mean():.1f}")
-            m4.metric("Meses Stock (Med.)", f"{df_final['Meses de stock'].median():.1f}")
-
             # --- TABLA DE ACCIÓN ---
             st.subheader("📋 Detalle de Criticidad y Empaque (UE)")
             
@@ -94,7 +88,8 @@ def mostrar_modulo_liquidation():
                 'STOCK ATP', 'Vencimiento', 'Vencimiento en meses', 'Meses de stock', 'Indicador A B C'
             ]
             
-            # Ordenamos asegurándonos de que no haya mezcla de tipos
+            # Nos aseguramos de que no haya mezcla de tipos antes de ordenar
+            df_final['Vencimiento en meses'] = df_final['Vencimiento en meses'].astype(float)
             df_final = df_final.sort_values(by=['Estado_Cerebro', 'Vencimiento en meses'], ascending=[True, True])
 
             st.dataframe(
@@ -107,4 +102,4 @@ def mostrar_modulo_liquidation():
             st.error(f"Error al procesar el archivo: {e}")
             
     else:
-        st.info("Carga el archivo de Vencimientos para analizar los lotes y sus unidades de empaque (UE).")
+        st.info("Carga el reporte de vencimientos para analizar los lotes y sus unidades de empaque (UE).")
