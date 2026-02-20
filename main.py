@@ -37,7 +37,8 @@ if gestionar_login():
         "Investigación de Mercado", 
         "Fijación de Precios", 
         "Liquidación (Prox. vencimientos)",
-        "Gestión de Sobre-stock"  # Añadido aquí
+        "Overstock",
+        "Matriz de Decisiones"
     ]
     
     modulos = st.session_state.get("permisos", modulos_disponibles)
