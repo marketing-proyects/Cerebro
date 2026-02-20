@@ -44,5 +44,8 @@ if gestionar_login():
     elif seleccion == "Fijación de Precios":
         mostrar_fijacion_precios()
 
-    elif seleccion == "Liquidación": ##### NUEVO #####
-        mostrar_modulo_liquidation() ##### NUEVO #####
+    elif seleccion == "Liquidación": 
+        mostrar_modulo_liquidation() 
+
+    else:
+        st.error("No tienes permisos asignados. Contacta al administrador.")
