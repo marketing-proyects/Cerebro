@@ -8,7 +8,7 @@ def mostrar_modulo_overstock():
     st.header("📊 Módulo de Análisis de Overstock / recuperación de Capital") 
     st.info("Análisis capital inmovilizado basado en la Curva de Rotación UY.")
 
-    # NOMENCLATURA REAL DEDUCIDA
+    # NOMENCLATURA ANALIZADA
     NOMENCLATURA = {
         'A': 'A - Consumibles (Alta Rotación)',
         'B': 'B - Insumos (Rotación Constante)',
