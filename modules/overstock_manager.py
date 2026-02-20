@@ -6,48 +6,44 @@ import plotly.express as px
 
 def mostrar_modulo_overstock():
     st.header("📊 Gestión de Sobre-stock y Recuperación de Capital")
-    
-    # Diccionario maestro de nomenclaturas para usar en tablas y gráficos
+    st.info("Diagnóstico de capital inmovilizado basado en la Curva de Rotación de Uruguay.")
+
+    # DICCIONARIO DE NOMENCLATURA REAL (Basado en el análisis de productos)
     NOMENCLATURA = {
-        'A': 'A - Alta Rotación',
-        'B': 'B - Media Rotación',
-        'C': 'C - Baja Rotación',
-        'D': 'D - Residual',
-        'E': 'E - Exhibidores',
-        'F': 'F - Fuera de Catálogo',
-        'G': 'G - Gifts / Regalos',
-        'N': 'N - Nuevos',
-        'S/D': 'S/D - Sin Datos'
+        'A': 'A - Consumibles / Alta Rotación',
+        'B': 'B - Herramientas e Insumos / Rotación Alta',
+        'C': 'C - Maquinaria y Químicos / Rotación Media',
+        'D': 'D - Maquinaria Pesada / Rotación Baja',
+        'E': 'E - Herramientas Específicas / Rotación Muy Baja',
+        'F': 'F - Artículos Técnicos / Rotación Crítica',
+        'G': 'G - Accesorios y Especialidades / Rotación Errática',
+        'N': 'N - Lanzamientos / Nuevos',
+        'S/D': 'S/D - Sin Clasificación'
     }
 
-    # --- BLOQUE DE AYUDA 1: Categorías ---
-    with st.expander("ℹ️ 1. LEYENDA DE CATEGORÍAS (ABC/DEGN)"):
-        # Generamos la tabla de la leyenda dinámicamente o fija para control total
+    # --- AYUDA 1: Categorías Reales ---
+    with st.expander("ℹ️ 1. LEYENDA TÉCNICA (Basada en Productos Reales)"):
         st.markdown("""
-        | Cat | Descripción | Estrategia para Recuperar Capital |
+        | Cat | Tipo de Producto Típico | Comportamiento Financiero |
         | :--- | :--- | :--- |
-        | **A** | **Alta Rotación** | No liquidar. Frenar compras hasta normalizar stock. |
-        | **B** | **Media Rotación** | Promover venta cruzada (Cross-selling). |
-        | **C** | **Baja Rotación** | Ofertas especiales para liberar espacio. |
-        | **D** | **Residual** | **Acción Agresiva:** Recuperar el costo (Cash-out). |
-        | **E** | **Exhibidores** | Enviar a clientes estratégicos inmediatamente. |
-        | **F** | **Fuera de Catálogo** | Liquidar o dar de baja si no tiene mercado. |
-        | **G** | **Gifts / Regalos** | Usar como incentivo para vender productos C/D. |
-        | **N** | **Nuevos** | Monitorear aceptación del mercado. |
+        | **A / B** | Limpiadores, Papel, Zapatos, Herramientas manuales. | **Flujo de Caja:** Dinero en movimiento constante. |
+        | **C / D** | Hidrolavadoras, Amoladoras, Aceites 200L. | **Inmovilizado Medio:** Ocupan volumen y capital moderado. |
+        | **E / F / G**| Dinamométricas, Jump Starters, Carros, Spoter. | **Alto Riesgo:** Productos caros de venta lenta. |
+        | **N** | Lanzamientos recientes. | **Incertidumbre:** Pendiente de confirmar rotación real. |
         """)
 
-    # --- BLOQUE DE AYUDA 2: Semáforo ---
-    with st.expander("🚦 2. LÓGICA DEL SEMÁFORO (Meses de Stock)"):
+    # --- AYUDA 2: Semáforo ---
+    with st.expander("🚦 2. LÓGICA DEL SEMÁFORO"):
         st.markdown("""
         | Estado | Condición | Riesgo Contable |
         | :--- | :--- | :--- |
-        | 🔴 **RIESGO CONTABLE** | > 12 meses de stock | **Muy Alto:** Capital dormido hace más de un año. |
-        | ⚪ **SIN ROTACIÓN** | Stock > 0 y Venta = 0 | **Extremo:** Sin inercia. Peligro de pérdida total. |
-        | 🟡 **EXCEDENTE** | 6 a 12 meses de stock | **Medio:** Stock por encima de la media de seguridad. |
-        | 🟢 **SALUDABLE** | < 6 meses de stock | **Bajo:** Rotación normal. |
+        | 🔴 **RIESGO CONTABLE** | > 12 meses de stock | Requiere provisión por obsolescencia. |
+        | ⚪ **SIN MOVIMIENTO** | Stock > 0 y Venta = 0 | Capital "muerto". Acción inmediata necesaria. |
+        | 🟡 **EXCEDENTE** | 6 a 12 meses de stock | Alerta de sobre-compra. |
+        | 🟢 **SALUDABLE** | < 6 meses de stock | Rotación óptima. |
         """)
 
-    archivo = st.file_uploader("Cargar reporte de Sobre-stock (Overstock)", type=['xlsx', 'csv'], key="overstock_f_update")
+    archivo = st.file_uploader("Cargar reporte de Sobre-stock", type=['xlsx', 'csv'], key="overstock_uy_v1")
 
     if archivo:
         try:
@@ -55,14 +51,12 @@ def mostrar_modulo_overstock():
             df.columns = df.columns.str.strip()
 
             # --- LIMPIEZA ---
-            cols_num = ['ATP-quantity', 'Meses de stock ATP', 'Importe disponible para acciones', 'Promedio de venta mensual']
-            for col in cols_num:
+            for col in ['ATP-quantity', 'Meses de stock ATP', 'Importe disponible para acciones', 'Promedio de venta mensual']:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(float)
 
             df['Indicador ABC'] = df['Indicador ABC'].astype(str).replace('nan', 'S/D').str.strip() if 'Indicador ABC' in df.columns else 'S/D'
 
-            # --- TRATAMIENTO CÓDIGO/UE ---
             def procesar_ue(txt):
                 txt = str(txt).strip()
                 partes = re.split(r'\s{2,}', txt)
@@ -71,10 +65,9 @@ def mostrar_modulo_overstock():
                 return pd.Series([raiz, ue])
             df[['Cod_Limpio', 'UE']] = df['Material'].apply(procesar_ue)
 
-            # --- SALUD INVENTARIO ---
             def definir_salud(row):
                 if row['ATP-quantity'] > 0 and row['Promedio de venta mensual'] == 0:
-                    return "⚪ SIN ROTACIÓN"
+                    return "⚪ SIN MOVIMIENTO"
                 return "🔴 RIESGO CONTABLE" if row['Meses de stock ATP'] > 12 else ("🟡 EXCEDENTE" if row['Meses de stock ATP'] >= 6 else "🟢 SALUDABLE")
             df['Salud_Inventario'] = df.apply(definir_salud, axis=1)
 
@@ -82,14 +75,13 @@ def mostrar_modulo_overstock():
             st.subheader("🔍 Filtros de Impacto")
             c1, c2, c3 = st.columns(3)
             with c1:
-                salud_sel = st.multiselect("Nivel de Riesgo:", ["🔴 RIESGO CONTABLE", "⚪ SIN ROTACIÓN", "🟡 EXCEDENTE", "🟢 SALUDABLE"], default=["🔴 RIESGO CONTABLE", "⚪ SIN ROTACIÓN"])
+                salud_sel = st.multiselect("Riesgo:", ["🔴 RIESGO CONTABLE", "⚪ SIN MOVIMIENTO", "🟡 EXCEDENTE", "🟢 SALUDABLE"], default=["🔴 RIESGO CONTABLE", "⚪ SIN MOVIMIENTO"])
             with c2:
-                busqueda = st.text_input("Buscar por Código o Nombre:").strip().replace(" ", "")
+                busqueda = st.text_input("Buscar Producto:").strip().replace(" ", "")
             with c3:
                 abc_ops = sorted([str(x) for x in df['Indicador ABC'].unique() if str(x) != 'nan'])
-                abc_sel = st.multiselect("Categoría ABC/DEGN:", options=abc_ops, default=abc_ops)
+                abc_sel = st.multiselect("Rotación:", options=abc_ops, default=abc_ops)
 
-            # Aplicar Filtros
             mask = df['Salud_Inventario'].isin(salud_sel) & df['Indicador ABC'].isin(abc_sel)
             if busqueda:
                 mask = mask & (df['Cod_Limpio'].str.contains(busqueda, case=False) | df['Descripción del material'].str.contains(busqueda, case=False))
@@ -98,26 +90,19 @@ def mostrar_modulo_overstock():
             # --- MÉTRICAS ---
             st.markdown("---")
             m1, m2, m3 = st.columns(3)
-            m1.metric("Lotes en Riesgo", len(df_final))
+            m1.metric("Lotes Críticos", len(df_final))
             cap_inv = df_final['Importe disponible para acciones'].sum()
             m2.metric("Capital Inmovilizado", f"$ {cap_inv:,.0f}")
-            m3.metric("Recuperación Potencial (50%)", f"$ {(cap_inv * 0.5):,.0f}")
+            m3.metric("Recuperación (50%)", f"$ {(cap_inv * 0.5):,.0f}")
 
-            # --- GRÁFICO DE TORTA MEJORADO ---
+            # --- GRÁFICO DE TORTA AUTO-EXPLICATIVO ---
             if not df_final.empty:
-                st.subheader("📊 Distribución del Capital Inmovilizado")
-                
-                # Mapeamos los nombres completos para la leyenda
+                st.subheader("📊 Capital Atrapado por Nivel de Rotación")
                 df_grafico = df_final.groupby('Indicador ABC')['Importe disponible para acciones'].sum().reset_index()
                 df_grafico['Categoría'] = df_grafico['Indicador ABC'].map(NOMENCLATURA).fillna(df_grafico['Indicador ABC'])
                 
-                # Mapa de colores (mantenemos consistencia)
-                color_map = {v: '#ED1C24' if 'A' in v else '#333333' for v in NOMENCLATURA.values()}
-
-                fig = px.pie(
-                    df_grafico, values='Importe disponible para acciones', names='Categoría',
-                    color='Categoría', color_discrete_map=color_map, hole=0.4
-                )
+                fig = px.pie(df_grafico, values='Importe disponible para acciones', names='Categoría', hole=0.4,
+                             color_discrete_sequence=px.colors.sequential.Reds_r)
                 fig.update_traces(textposition='inside', textinfo='percent+label')
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -131,7 +116,7 @@ def mostrar_modulo_overstock():
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     df_final[cols_ver].to_excel(writer, index=False, sheet_name='Overstock')
-                st.download_button(label="📥 Exportar Reporte de Acciones", data=output.getvalue(), file_name="Planilla_Overstock_Wurth.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                st.download_button(label="📥 Exportar Excel de Acciones", data=output.getvalue(), file_name="Planilla_Overstock_Wurth.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 
         except Exception as e:
-            st.error(f"Error en el análisis: {e}")
+            st.error(f"Error: {e}")
