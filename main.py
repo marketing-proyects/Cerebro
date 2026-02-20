@@ -15,6 +15,7 @@ from modules.auth_manager import gestionar_login
 from modules.pricing_logic import mostrar_fijacion_precios
 from modules.market_intel import mostrar_investigacion
 from modules.liquidation_manager import mostrar_modulo_liquidation
+from modules.overstock_manager import mostrar_modulo_overstock
 
 # 3. Estilos corporativos
 st.markdown("""
