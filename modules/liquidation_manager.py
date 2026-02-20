@@ -4,7 +4,7 @@ import re
 import io
 
 def mostrar_modulo_liquidation():
-    st.header("📦 Módulo de Análisis Estratégico / próximos Vencimientos")
+    st.header("📦 Módulo de Análisis Estratégico / Próximos Vencimientos")
     st.info("Diagnóstico de Inventario por Lote y Unidad de Empaque (UE).")
 
     # 1. Glosario
