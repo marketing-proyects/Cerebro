@@ -30,14 +30,14 @@ def inyectar_animacion():
             pointer-events: none;
         }}
 
-        /* --- LOGO WÜRTH: AJUSTADO PARA NO QUEDAR TAPADO --- */
+        /* --- LOGO WÜRTH --- */
         #logo-superior {{
             position: fixed;
-            top: 65px;    /* Aumentamos de 40px a 65px para esquivar la barra de Streamlit */
+            top: 65px;
             right: 40px; 
             width: 170px;
             height: 50px;
-            z-index: 9999; /* Máxima prioridad visual */
+            z-index: 9999;
             background-image: {logo_content};
             background-size: contain;
             background-repeat: no-repeat;
@@ -74,11 +74,24 @@ def inyectar_animacion():
     """, unsafe_allow_html=True)
 
 def gestionar_login():
+    # Diccionario actualizado con el nuevo nombre del módulo de Liquidación
     USUARIOS = {
-        "admin": {"pass": "123", "permisos": ["Investigación de Mercado", "Fijación de Precios", "Liquidación"]},
-        "usuario_marketing": {"pass": "marketing2026", "permisos": ["Investigación de Mercado"]},
-        "usuario_director": {"pass": "director2026", "permisos": ["Fijación de Precios"]},
-        "usuario_invitado": {"pass": "invitado2026", "permisos": ["Investigación de Mercado", "Fijación de Precios", "Liquidación"]}
+        "admin": {
+            "pass": "123", 
+            "permisos": ["Investigación de Mercado", "Fijación de Precios", "Liquidación (Prox. vencimientos)"]
+        },
+        "usuario_marketing": {
+            "pass": "marketing2026", 
+            "permisos": ["Investigación de Mercado"]
+        },
+        "usuario_director": {
+            "pass": "director2026", 
+            "permisos": ["Fijación de Precios"]
+        },
+        "usuario_invitado": {
+            "pass": "invitado2026", 
+            "permisos": ["Investigación de Mercado", "Fijación de Precios", "Liquidación (Prox. vencimientos)"]
+        }
     }
 
     if "autenticado" not in st.session_state:
@@ -87,7 +100,6 @@ def gestionar_login():
     if not st.session_state["autenticado"]:
         inyectar_animacion()
         
-        # Bajamos un poco más el título para que haya armonía visual con el logo bajado
         st.markdown("<h3 style='text-align: center; color: #333; margin-top: 160px; margin-bottom: 30px;'>ACCESO CEREBRO</h3>", unsafe_allow_html=True)
 
         with st.container():
