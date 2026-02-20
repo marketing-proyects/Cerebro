@@ -1,109 +1,87 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import re
 
 def mostrar_modulo_liquidation():
     st.header("📦 Módulo de Liquidación Estratégica")
-    st.info("Análisis de criticidad basado en Vencimiento vs. Capacidad de Venta (Sell-out).")
+    st.info("Diagnóstico de Inventario por Lote y Unidad de Empaque (UDE).")
 
-    archivo = st.file_uploader("Cargar volcado de Vencimientos (Excel/CSV)", type=['xlsx', 'csv'], key="liq_uploader_real")
+    archivo = st.file_uploader("Cargar volcado de Vencimientos", type=['xlsx', 'csv'], key="liq_uploader_final")
 
     if archivo:
         try:
-            # Lectura del nuevo formato
-            if archivo.name.endswith('.csv'):
-                df = pd.read_csv(archivo)
-            else:
-                df = pd.read_excel(archivo)
-
-            # 1. LIMPIEZA DE DATOS (Nombres de columnas y espacios)
+            df = pd.read_csv(archivo) if archivo.name.endswith('.csv') else pd.read_excel(archivo)
             df.columns = df.columns.str.strip()
-            # Limpiar espacios en blanco de los códigos de material para que no fallen las búsquedas
-            df['Material'] = df['Material'].astype(str).str.strip()
 
-            # 2. LÓGICA DEL FACTOR CRÍTICO (Semáforo Dinámico)
-            def calcular_semaforo(row):
-                try:
-                    vto_meses = float(row['Vencimiento en meses'])
-                    stock_meses = float(row['Meses de stock'])
-                    
-                    if stock_meses >= vto_meses:
-                        return "🔴 CRÍTICO (Liquidar)"
-                    elif vto_meses - stock_meses <= 3: # Margen de seguridad de 3 meses
-                        return "🟡 MEDIO (Promocionar)"
-                    else:
-                        return "🟢 OK"
-                except:
-                    return "⚪ Sin Datos"
+            # --- TRATAMIENTO INTELIGENTE DE CÓDIGOS Y UDE ---
+            def procesar_codigo(txt):
+                txt = str(txt).strip()
+                # Buscamos el último número después de una serie de espacios
+                # Ejemplo: "089001000 716    1" -> Raíz: "089001000 716", UDE: 1
+                partes = re.split(r'\s{2,}', txt) 
+                if len(partes) > 1:
+                    raiz = partes[0].strip()
+                    ude = partes[-1].strip()
+                else:
+                    # Si no hay espacios múltiples, tomamos el código tal cual y UDE 1 por defecto
+                    raiz = txt
+                    ude = "1"
+                return pd.Series([raiz, ude])
 
-            df['Semaforo_Cerebro'] = df.apply(calcular_semaforo, axis=1)
+            # Creamos dos nuevas columnas técnicas
+            df[['Cod_Raiz', 'UDE']] = df['Material'].apply(procesar_codigo)
 
-            # --- PANEL DE FILTROS ---
-            st.subheader("🔍 Filtros de Acción")
+            # --- LÓGICA DE SEMÁFORO ---
+            def definir_estado(row):
+                accion = str(row.get('Meses de acción', '')).strip().lower()
+                vto_m = pd.to_numeric(row.get('Vencimiento en meses', 0), errors='coerce')
+                stk_m = pd.to_numeric(row.get('Meses de stock', 0), errors='coerce')
+                
+                if 'fecha vto' in accion or (stk_m > 0 and stk_m >= vto_m):
+                    return "🔴 CRÍTICO"
+                elif accion != 'ok' and stk_m > 0:
+                    return "🟡 ALERTA"
+                else:
+                    return "🟢 ESTABLE"
+
+            df['Estado_Cerebro'] = df.apply(definir_estado, axis=1)
+
+            # --- INTERFAZ ---
+            st.subheader("🔍 Filtros de Inventario")
             f1, f2, f3 = st.columns(3)
             with f1:
-                nivel = st.multiselect("Nivel de Agresividad:", 
-                                     options=df['Semaforo_Cerebro'].unique(), 
-                                     default=["🔴 CRÍTICO (Liquidar)", "🟡 MEDIO (Promocionar)"])
+                niveles = st.multiselect("Riesgo:", ["🔴 CRÍTICO", "🟡 ALERTA", "🟢 ESTABLE"], default=["🔴 CRÍTICO", "🟡 ALERTA"])
             with f2:
-                cat_abc = st.multiselect("Categoría ABC:", options=sorted(df['Indicador A B C'].unique()), default=['A', 'B'])
+                # Buscador que ahora cruza Raíz, Descripción o Lote
+                busqueda = st.text_input("Buscar (Código, Nombre o Lote):").strip()
             with f3:
-                busqueda = st.text_input("Buscar por Material o Lote:")
+                abc = sorted(df['Indicador A B C'].unique().tolist()) if 'Indicador A B C' in df.columns else []
+                abc_sel = st.multiselect("ABC:", options=abc, default=abc)
 
-            # Aplicar Filtros
-            mask = (df['Semaforo_Cerebro'].isin(nivel)) & (df['Indicador A B C'].isin(cat_abc))
+            # Filtrado dinámico
+            mask = df['Estado_Cerebro'].isin(niveles) & df['Indicador A B C'].isin(abc_sel)
             if busqueda:
-                mask = mask & (df['Material'].str.contains(busqueda) | df['Descripción'].str.contains(busqueda, case=False))
+                mask = mask & (df['Cod_Raiz'].str.contains(busqueda, case=False) | 
+                               df['Descripción'].str.contains(busqueda, case=False) | 
+                               df['Lote'].astype(str).str.contains(busqueda))
             
-            df_filtrado = df[mask]
+            df_final = df[mask].copy()
 
-            # --- MÉTRICAS ---
-            st.markdown("---")
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Items a Liquidar", len(df_filtrado))
-            m2.metric("Stock ATP Total", f"{int(df_filtrado['STOCK ATP'].sum()):,}")
-            # Calculamos valorización estimada si tuvieramos el PPP, por ahora cantidad
-            m3.metric("Lotes en Riesgo", df_filtrado['Lote'].nunique())
-            m4.metric("Meses Stock Prom.", f"{df_filtrado['Meses de stock'].mean():.1f}")
-
-            # --- TABLA DE DATOS ---
-            st.subheader("📋 Detalle de Lotes y Vencimientos")
-            
-            # Seleccionamos las columnas útiles para el usuario
-            cols_mostrar = [
-                'Semaforo_Cerebro', 'Material', 'Descripción', 'Lote', 
-                'STOCK ATP', 'Vencimiento', 'Vencimiento en meses', 
-                'Meses de stock', 'Indicador A B C'
-            ]
+            # --- TABLA ---
+            # Mostramos la UDE para que el usuario sepa cómo vienen empaquetados
+            cols_ok = ['Estado_Cerebro', 'Cod_Raiz', 'Descripción', 'UDE', 'Lote', 'STOCK ATP', 'Vencimiento', 'Meses de stock', 'Indicador A B C']
             
             st.dataframe(
-                df_filtrado[cols_mostrar].sort_values(by='Vencimiento'),
+                df_final[cols_ok].sort_values(by=['Estado_Cerebro', 'Vencimiento']),
                 use_container_width=True,
                 hide_index=True
             )
 
-            # --- ESTRATEGIA DE OFERTAS ---
-            st.markdown("---")
-            st.subheader("📢 Recomendación de Ofertas")
-            
-            c_agresiva, c_moderada = st.columns(2)
-            with c_agresiva:
-                st.error("🔥 **Oferta AGRESIVA (Rojos)**")
-                st.write("""
-                - **Tipo:** Liquidación por vencimiento inminente.
-                - **Acción:** Descuento directo > 40% o Pack 2x1.
-                - **Objetivo:** Recuperar costo antes del vencimiento total.
-                """)
-            with c_moderada:
-                st.warning("⚡ **Oferta MODERADA (Amarillos)**")
-                st.write("""
-                - **Tipo:** Acción preventiva de Overstock.
-                - **Acción:** Combo con productos Clase A o 20% de descuento por volumen.
-                - **Objetivo:** Acelerar el sell-out para evitar que pasen a Rojo.
-                """)
+            # Mensaje preventivo para el futuro módulo de ofertas
+            if not df_final.empty:
+                st.caption(f"💡 Se han detectado unidades de empaque (UDE) variables. El sistema respetará estos múltiplos para las futuras propuestas de ofertas.")
 
         except Exception as e:
-            st.error(f"Error al analizar el nuevo formato: {e}")
-            st.info("Asegúrate de cargar el archivo con las columnas: Material, Lote, STOCK ATP, Vencimiento en meses, etc.")
+            st.error(f"Error: {e}")
     else:
-        st.info("Carga el reporte de vencimientos para determinar la agresividad de las ofertas.")
+        st.info("Carga el archivo para analizar vencimientos y unidades de empaque.")
