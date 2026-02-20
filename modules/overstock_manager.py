@@ -2,12 +2,13 @@ import streamlit as st
 import pandas as pd
 import re
 import io
+import plotly.express as px  # Para el gráfico dinámico
 
 def mostrar_modulo_overstock():
     st.header("📊 Gestión de Sobre-stock y Recuperación de Capital")
-    st.info("Análisis de inercia de venta para identificar capital inmovilizado.")
+    st.info("Identificación de capital inmovilizado y riesgo de pérdida contable.")
 
-   # 1. Glosario Técnico
+    # 1. CUADRO DE NOMENCLATURA
     with st.expander("ℹ️ VER LEYENDA DE CATEGORÍAS (ABC/DEGN)"):
         st.markdown("""
         | Cat | Descripción | Estrategia para Recuperar Capital |
@@ -19,21 +20,9 @@ def mostrar_modulo_overstock():
         | **E** | **Exhibidores:** Activos de Mkt. | Sacar del depósito y enviar a clientes estratégicos. |
         | **G** | **Gifts / Regalos:** Costo hundido. | Usar como 'gancho' para vender el sobre-stock de Cat C/D. |
         | **N** | **Nuevos:** Error de previsión. | Evaluar si el mercado aceptó el producto. |
-        | **S/D**| **Sin Datos:** Desconocido. | Clasificar para entender el peso financiero. |
-        """)
-    
-    # 2. Glosario Técnico de Sobre-stock
-    with st.expander("ℹ️ LÓGICA DE DIAGNÓSTICO (Inercia de Venta)"):
-        st.markdown("""
-        | Estado | Condición (Meses de Stock) | Acción Sugerida |
-        | :--- | :--- | :--- |
-        | 🔴 **CRÍTICO** | > 12 meses | Liquidación agresiva. |
-        | 🟡 **EXCEDENTE** | 6 a 12 meses | Frenar compras y activar promociones de volumen. |
-        | 🟢 **SALUDABLE** | < 6 meses | Flujo normal. Reposición estándar. |
-        | ⚪ **INACTIVO** | Venta = 0 con Stock | Riesgo total. Evaluar obsolescencia o campaña especial. |
         """)
 
-    archivo = st.file_uploader("Cargar reporte de Sobre-stock (Overstock)", type=['xlsx', 'csv'], key="overstock_uploader")
+    archivo = st.file_uploader("Cargar reporte de Sobre-stock (Overstock)", type=['xlsx', 'csv'], key="overstock_v_grafico")
 
     if archivo:
         try:
@@ -46,6 +35,8 @@ def mostrar_modulo_overstock():
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(float)
 
+            df['Indicador ABC'] = df['Indicador ABC'].astype(str).replace('nan', 'S/D').str.strip() if 'Indicador ABC' in df.columns else 'S/D'
+
             # --- TRATAMIENTO DE CÓDIGO Y UE ---
             def procesar_ue(txt):
                 txt = str(txt).strip()
@@ -56,17 +47,13 @@ def mostrar_modulo_overstock():
 
             df[['Cod_Limpio', 'UE']] = df['Material'].apply(procesar_ue)
 
-            # --- LÓGICA DE SEMÁFORO DE SALUD ---
+            # --- SEMÁFORO FINANCIERO ---
             def definir_salud(row):
-                meses = row['Meses de stock ATP']
-                venta = row['Promedio de venta mensual']
-                stock = row['ATP-quantity']
-                
-                if stock > 0 and venta == 0:
-                    return "⚪ INACTIVO"
-                elif meses > 12:
-                    return "🔴 CRÍTICO"
-                elif meses >= 6:
+                if row['ATP-quantity'] > 0 and row['Promedio de venta mensual'] == 0:
+                    return "⚪ SIN ROTACIÓN"
+                elif row['Meses de stock ATP'] > 12:
+                    return "🔴 RIESGO CONTABLE"
+                elif row['Meses de stock ATP'] >= 6:
                     return "🟡 EXCEDENTE"
                 else:
                     return "🟢 SALUDABLE"
@@ -74,54 +61,70 @@ def mostrar_modulo_overstock():
             df['Salud_Inventario'] = df.apply(definir_salud, axis=1)
 
             # --- FILTROS ---
-            st.subheader("🔍 Filtros de Análisis")
+            st.subheader("🔍 Filtros de Impacto")
             c1, c2, c3 = st.columns(3)
             with c1:
-                salud_sel = st.multiselect("Salud de Stock:", ["🔴 CRÍTICO", "🟡 EXCEDENTE", "⚪ INACTIVO", "🟢 SALUDABLE"], default=["🔴 CRÍTICO", "⚪ INACTIVO"])
+                salud_sel = st.multiselect("Nivel de Riesgo:", ["🔴 RIESGO CONTABLE", "⚪ SIN ROTACIÓN", "🟡 EXCEDENTE", "🟢 SALUDABLE"], default=["🔴 RIESGO CONTABLE", "⚪ SIN ROTACIÓN"])
             with c2:
-                busqueda = st.text_input("Buscar Producto/Código:").strip().replace(" ", "")
+                busqueda = st.text_input("Buscar por Código o Nombre:").strip().replace(" ", "")
             with c3:
-                abc_ops = sorted([str(x) for x in df['Indicador ABC'].unique()]) if 'Indicador ABC' in df.columns else []
+                abc_ops = sorted([str(x) for x in df['Indicador ABC'].unique() if str(x) != 'nan'])
                 abc_sel = st.multiselect("Categoría ABC/DEGN:", options=abc_ops, default=abc_ops)
 
             # Aplicar Filtros
-            mask = df['Salud_Inventario'].isin(salud_sel)
-            if abc_sel:
-                mask = mask & df['Indicador ABC'].isin(abc_sel)
+            mask = df['Salud_Inventario'].isin(salud_sel) & df['Indicador ABC'].isin(abc_sel)
             if busqueda:
                 mask = mask & (df['Cod_Limpio'].str.contains(busqueda, case=False) | df['Descripción del material'].str.contains(busqueda, case=False))
             
             df_final = df[mask].copy()
 
-            # --- MÉTRICAS DE IMPACTO ---
+            # --- MÉTRICAS DE VALOR ---
             st.markdown("---")
             m1, m2, m3 = st.columns(3)
-            m1.metric("Items en Riesgo", len(df_final))
-            m2.metric("Total Stock ATP", f"{int(df_final['ATP-quantity'].sum()):,}")
-            # El importe nos da el valor real del capital inmovilizado
-            importe_total = df_final['Importe disponible para acciones'].sum()
-            m3.metric("Capital Inmovilizado", f"$ {importe_total:,.2f}")
+            m1.metric("Lotes en Riesgo", len(df_final))
+            cap_inv = df_final['Importe disponible para acciones'].sum()
+            m2.metric("Capital Inmovilizado", f"$ {cap_inv:,.0f}")
+            m3.metric("Recuperación Potencial (50%)", f"$ {(cap_inv * 0.5):,.0f}")
+
+            # --- GRÁFICO DE TORTA: DISTRIBUCIÓN DE CAPITAL ---
+            if not df_final.empty:
+                st.subheader("📊 Distribución del Capital Inmovilizado")
+                
+                # Agrupamos por Categoría ABC para el gráfico
+                df_grafico = df_final.groupby('Indicador ABC')['Importe disponible para acciones'].sum().reset_index()
+                
+                # Colores corporativos (Rojo Würth y variaciones)
+                colores = {'A': '#ED1C24', 'B': '#333333', 'C': '#555555', 'D': '#888888', 'E': '#AAAAAA', 'G': '#CCCCCC', 'N': '#EEEEEE', 'S/D': '#000000'}
+
+                fig = px.pie(
+                    df_grafico, 
+                    values='Importe disponible para acciones', 
+                    names='Indicador ABC',
+                    color='Indicador ABC',
+                    color_discrete_map=colores,
+                    hole=0.4, # Lo hacemos tipo "Donut" que es más moderno
+                )
+                
+                fig.update_traces(textposition='inside', textinfo='percent+label')
+                fig.update_layout(showlegend=True, height=400)
+                
+                st.plotly_chart(fig, use_container_width=True)
 
             # --- TABLA DE RESULTADOS ---
-            st.subheader("📋 Listado de Recuperación de Capital")
-            cols_ver = [
-                'Salud_Inventario', 'Cod_Limpio', 'Descripción del material', 'UE', 
-                'ATP-quantity', 'Meses de stock ATP', 'Promedio de venta mensual', 
-                'Importe disponible para acciones', 'Indicador ABC'
-            ]
+            st.subheader("📋 Detalle de Artículos Estancados")
+            cols_ver = ['Salud_Inventario', 'Cod_Limpio', 'Descripción del material', 'UE', 'ATP-quantity', 'Meses de stock ATP', 'Importe disponible para acciones', 'Indicador ABC']
             
-            df_final = df_final.sort_values(by=['Importe disponible para acciones', 'Meses de stock ATP'], ascending=False)
-            
+            df_final = df_final.sort_values(by='Importe disponible para acciones', ascending=False)
             st.dataframe(df_final[cols_ver], use_container_width=True, hide_index=True)
 
-            # --- BOTÓN DE DESCARGA ---
+            # --- DESCARGA ---
             if not df_final.empty:
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     df_final[cols_ver].to_excel(writer, index=False, sheet_name='Overstock')
                 
                 st.download_button(
-                    label="📥 Descargar Planilla de Acciones Comerciales",
+                    label="📥 Exportar Reporte de Acciones Comerciales",
                     data=output.getvalue(),
                     file_name="Planilla_Overstock_Wurth.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -129,6 +132,4 @@ def mostrar_modulo_overstock():
                 )
 
         except Exception as e:
-            st.error(f"Error al analizar el sobre-stock: {e}")
-    else:
-        st.info("Suba el reporte de stock para identificar el capital inmovilizado.")
+            st.error(f"Error en el análisis: {e}")
