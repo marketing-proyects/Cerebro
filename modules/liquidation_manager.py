@@ -22,7 +22,7 @@ def mostrar_modulo_liquidation():
     archivo = st.file_uploader("Cargar volcado de Vencimientos", type=['xlsx', 'csv'], key="liq_uploader_v_final")
 
     if archivo:
-        df_final = pd.DataFrame() # Inicializamos vacío
+        st.session_state['data_vencimientos'] = df_final
         
         try:
             # Lectura
