@@ -1,7 +1,15 @@
 import streamlit as st
+import os
 
-# 1. CONFIGURACIÓN DE PÁGINA: Obligatoriamente antes de importar tus módulos
-st.set_page_config(page_title="SISTEMA CEREBRO - WÜRTH", page_icon="👁️‍🗨️", layout="wide")
+# 1. CONFIGURACIÓN DE PÁGINA: Favicon actualizado
+# El archivo debe llamarse 'favicon_wurth.png' y estar en la misma carpeta que este script
+icon_path = "favicon_wurth.png"
+
+st.set_page_config(
+    page_title="SISTEMA CEREBRO - WÜRTH", 
+    page_icon=icon_path if os.path.exists(icon_path) else "👁️‍🗨️", 
+    layout="wide"
+)
 
 # 2. Importación de todos los módulos de la aplicación
 from modules.auth_manager import gestionar_login
@@ -20,31 +28,36 @@ st.markdown("""
 
 # 4. Lógica de autenticación y navegación
 if gestionar_login():
-    # Título corregido con comillas simples por fuera y dobles por dentro
     st.sidebar.title('INTELIGENCIA DE MARKETING Y MERCADO "CEREBRO"')
     st.sidebar.write(f"Usuario: **{st.session_state.get('username', 'admin')}**")
     st.sidebar.divider()
     
-    # Menú de navegación
-    modulos_disponibles = ["Investigación de Mercado", "Fijación de Precios", "Liquidación"] ##### AQUI ACCESO A MODULOS #####
+    # Nombres de módulos actualizados
+    modulos_disponibles = [
+        "Investigación de Mercado", 
+        "Fijación de Precios", 
+        "Liquidación (Prox. vencimientos)"
+    ]
+    
+    # Obtenemos permisos del session_state
     modulos = st.session_state.get("permisos", modulos_disponibles)
     
-    # Aseguramos que "Liquidación" esté disponible en la lista si el usuario tiene permisos
-    seleccion = st.sidebar.radio("Navegación:", modulos)
+    # CAMBIO: De "Navegación" a "Módulos"
+    seleccion = st.sidebar.radio("Módulos:", modulos)
     
     st.sidebar.divider()
     if st.sidebar.button("CERRAR SESIÓN"):
         st.session_state["autenticado"] = False
         st.rerun()
 
-    # Enrutamiento a las pestañas correspondientes
+    # Enrutamiento con el nombre actualizado
     if seleccion == "Investigación de Mercado":
         mostrar_investigacion()
         
     elif seleccion == "Fijación de Precios":
         mostrar_fijacion_precios()
 
-    elif seleccion == "Liquidación": 
+    elif seleccion == "Liquidación (Prox. vencimientos)": 
         mostrar_modulo_liquidation() 
 
     else:
