@@ -10,12 +10,16 @@ def mostrar_modulo_liquidation():
     # 1. Glosario
     with st.expander("ℹ️ VER LEYENDA DE CATEGORÍAS (ABC/DEGN)"):
         st.markdown("""
-        | Cat | Descripción | Estrategia de Promoción Sugerida |
+        | Cat | Descripción | Estrategia ante Vencimiento |
         | :--- | :--- | :--- |
-        | **A** | **Alta Rotación** | Ofertas de volumen (10+1). |
-        | **B** | **Media Rotación** | Descuentos moderados / Combos. |
-        | **E** | **Exhibidores** | Acción inmediata: Colocación o Regalo. |
-        | **D/C**| **Baja Rotación** | Liquidación agresiva. |
+        | **A** | **Alta Rotación:** Artículos estrella. | Ofertas de volumen (10+1) para stockear al cliente. |
+        | **B** | **Media Rotación:** Soporte de venta. | Combos con productos A para mover el lote viejo. |
+        | **C** | **Baja Rotación:** Productos de nicho. | Incentivar la primera compra con descuento agresivo. |
+        | **D** | **Residual:** Rotación mínima. | **Liquidación Total:** El objetivo es que salga antes de vencer. |
+        | **E** | **Exhibidores:** Material de display. | Colocación inmediata en punto de venta (PdV). |
+        | **G** | **Gifts / Regalos:** Promocionales. | Regalar por la compra de productos con riesgo 🔴. |
+        | **N** | **Nuevos:** Lanzamientos. | Revisar por qué no rotó en el lanzamiento. |
+        | **S/D**| **Sin Datos:** No clasificado. | Revisar estado del artículo en el maestro. |
         """)
 
     archivo = st.file_uploader("Cargar volcado de Vencimientos", type=['xlsx', 'csv'], key="liq_uploader_v_final")
