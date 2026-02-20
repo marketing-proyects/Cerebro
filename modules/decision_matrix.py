@@ -4,7 +4,7 @@ import io
 
 def mostrar_matriz_decisiones():
     st.header("🎯 Matriz de Decisiones: Consola de Campañas")
-    st.info("Diseño de ofertas partiendo de un 40% de margen")
+    st.info("Diseño estratégico de acciones comerciales")
 
     # --- 1. MEMORIA DE LA PROPUESTA ---
     if 'propuesta_acumulada' not in st.session_state:
