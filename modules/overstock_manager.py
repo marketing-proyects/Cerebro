@@ -5,7 +5,7 @@ import io
 import plotly.express as px
 
 def mostrar_modulo_overstock():
-    st.header("📊 Módulo de Análisis de Overstock / recuperación de Capital") 
+    st.header("📊 Módulo de Análisis de Overstock / Recuperación de Capital") 
     st.info("Análisis capital inmovilizado basado en la Curva de Rotación UY.")
 
     # NOMENCLATURA ANALIZADA
@@ -86,7 +86,11 @@ def mostrar_modulo_overstock():
             mask = df['Salud_Inventario'].isin(salud_sel) & df['Indicador ABC'].isin(abc_sel)
             if busqueda:
                 mask = mask & (df['Cod_Limpio'].str.contains(busqueda, case=False) | df['Descripción del material'].str.contains(busqueda, case=False))
+            
             df_final = df[mask].copy()
+
+            # --- AGREGADO: Almacenar los datos filtrados para la Matriz de Decisiones ---
+            st.session_state['data_overstock'] = df_final
 
             # Métricas
             st.markdown("---")
