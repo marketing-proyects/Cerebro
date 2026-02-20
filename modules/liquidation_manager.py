@@ -16,15 +16,23 @@ def mostrar_modulo_liquidation():
             else:
                 df = pd.read_excel(archivo)
             
-            # Limpiar nombres de columnas
+            # Limpiar nombres de columnas para evitar espacios invisibles
             df.columns = df.columns.str.strip()
 
-            # --- LIMPIEZA ULTRA-AGRESIVA (Para evitar el error de comparación) ---
+            # --- LIMPIEZA AGRESIVA DE DATOS ---
+            
+            # A. Columnas Numéricas: Forzamos a float y convertimos errores (como "Ok") en 0
             cols_a_limpiar = ['Vencimiento en meses', 'Meses de stock', 'STOCK ATP', 'Consumo mensual']
             for col in cols_a_limpiar:
                 if col in df.columns:
-                    # Forzamos conversión a string, quitamos todo lo que no sea número o punto, y convertimos a float
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(float)
+
+            # B. Columna ABC: La "vacunamos" contra el error de comparación (NaN vs Str)
+            if 'Indicador A B C' in df.columns:
+                # Convertimos todo a texto y llenamos vacíos con "Z" o "S/D"
+                df['Indicador A B C'] = df['Indicador A B C'].astype(str).replace('nan', 'S/D').strip()
+            else:
+                df['Indicador A B C'] = 'S/D'
 
             # --- TRATAMIENTO DE CÓDIGO Y UE ---
             def procesar_codigo_ue(txt):
@@ -41,15 +49,14 @@ def mostrar_modulo_liquidation():
 
             df[['Cod_Limpio', 'UE']] = df['Material'].apply(procesar_codigo_ue)
 
-            # --- LÓGICA DE SEMÁFORO (Ahora segura entre floats) ---
+            # --- LÓGICA DE SEMÁFORO ---
             def definir_estado(row):
-                # 'Meses de acción' lo tratamos estrictamente como texto para buscar "fecha vto"
                 accion_txt = str(row.get('Meses de acción', '')).strip().lower()
                 vto_val = float(row['Vencimiento en meses'])
                 stk_val = float(row['Meses de stock'])
                 
-                # Criterio: Si el sistema ya dice "vto" o si matemáticamente el stock dura más que la vida útil
-                if 'fecha vto' in accion_txt or (stk_val > 0 and stk_val >= vto_val):
+                # Criterio Würth: Si el sistema ya dice "vto" o si el stock dura más que la vida útil
+                if 'vto' in accion_txt or (stk_val > 0 and stk_val >= vto_val):
                     return "🔴 CRÍTICO"
                 elif 'ok' not in accion_txt and stk_val > 0:
                     return "🟡 ALERTA"
@@ -66,9 +73,12 @@ def mostrar_modulo_liquidation():
                                        options=["🔴 CRÍTICO", "🟡 ALERTA", "🟢 ESTABLE"], 
                                        default=["🔴 CRÍTICO", "🟡 ALERTA"])
             with f2:
+                # El buscador limpia espacios para coincidir con la raíz del código
                 busqueda = st.text_input("Buscar (Código, Nombre o Lote):").strip().replace(" ", "")
             with f3:
-                abc_ops = sorted(df['Indicador A B C'].unique().tolist()) if 'Indicador A B C' in df.columns else []
+                # Aquí estaba el error: ahora nos aseguramos de que ABC sea una lista de puros strings
+                abc_list = [str(x) for x in df['Indicador A B C'].unique() if x != 'nan']
+                abc_ops = sorted(abc_list)
                 abc_sel = st.multiselect("Categoría ABC:", options=abc_ops, default=abc_ops)
 
             # --- APLICAR FILTRO ---
@@ -88,8 +98,7 @@ def mostrar_modulo_liquidation():
                 'STOCK ATP', 'Vencimiento', 'Vencimiento en meses', 'Meses de stock', 'Indicador A B C'
             ]
             
-            # Nos aseguramos de que no haya mezcla de tipos antes de ordenar
-            df_final['Vencimiento en meses'] = df_final['Vencimiento en meses'].astype(float)
+            # Ordenamos por riesgo y luego por meses de vencimiento (ya como floats puros)
             df_final = df_final.sort_values(by=['Estado_Cerebro', 'Vencimiento en meses'], ascending=[True, True])
 
             st.dataframe(
