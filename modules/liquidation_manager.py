@@ -10,12 +10,13 @@ def mostrar_modulo_liquidation():
     # 1. Glosario
     with st.expander("ℹ️ VER LEYENDA TÉCNICA (Rotación ABC/DEFG)"):
         st.markdown("""
-        | Cat | Comportamiento | Estrategia ante Vencimiento |
+        | Cat | Comportamiento del Capital | Estrategia ante Vencimiento |
         | :--- | :--- | :--- |
-        | **A / B** | **Consumibles:** Salen solos. | Ofertas ligeras para asegurar el lote. |
-        | **C / D** | **Maquinaria:** Requieren empuje. | Combos y ofertas de volumen obligatorias. |
-        | **E / F / G**| **Especialidades:** Rotación Crítica. | **Liquidación Agresiva:** Prioridad máxima de despacho. |
-        | **N** | **Nuevos:** Sin historial. | Evaluar aceptación del mercado uruguayo. |
+        | **A / B** | **Consumibles Críticos:** Salen solos. | No requiere grandes descuentos. |
+        | **C / D** | **Insumos y Maquinaria:** Salida moderada. | Ofertas de volumen (Combos). |
+        | **E / F** | **Artículos Técnicos:** Salida lenta. | Prioridad en acciones dirigidas. |
+        | **G** | **Inactivos / Outlet:** Máximo riesgo. | **Liquidación Total:** Precio de costo. |
+        | **N** | **Lanzamientos:** Sin historial. | Monitorear tracción inicial. |
         """)
 
     archivo = st.file_uploader("Cargar volcado de Vencimientos", type=['xlsx', 'csv'], key="liq_uploader_v_final")
