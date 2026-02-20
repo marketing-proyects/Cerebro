@@ -7,7 +7,23 @@ def mostrar_modulo_overstock():
     st.header("📊 Gestión de Sobre-stock y Recuperación de Capital")
     st.info("Análisis de inercia de venta para identificar capital inmovilizado.")
 
-    # 1. Glosario Técnico de Sobre-stock
+    # 1. Glosario Técnico
+    
+    with st.expander("ℹ️ VER LEYENDA DE CATEGORÍAS (ABC/DEGN)"):
+        st.markdown("""
+        | Cat | Descripción | Estrategia para Recuperar Capital |
+        | :--- | :--- | :--- |
+        | **A** | **Alta Rotación:** Capital seguro. | No liquidar. Frenar compras hasta normalizar stock. |
+        | **B** | **Media Rotación:** Capital estable. | Promover venta cruzada (Cross-selling). |
+        | **C** | **Baja Rotación:** Capital lento. | Ofertas especiales para liberar espacio en depósito. |
+        | **D** | **Residual:** Capital estancado. | **Acción Agresiva:** Recuperar el costo (Cash-out). |
+        | **E** | **Exhibidores:** Activos de Mkt. | Sacar del depósito y enviar a clientes estratégicos. |
+        | **G** | **Gifts / Regalos:** Costo hundido. | Usar como 'gancho' para vender el sobre-stock de Cat C/D. |
+        | **N** | **Nuevos:** Error de previsión. | Evaluar si el mercado aceptó el producto. |
+        | **S/D**| **Sin Datos:** Desconocido. | Clasificar para entender el peso financiero. |
+        """)
+    
+    # 2. Glosario Técnico de Sobre-stock
     with st.expander("ℹ️ LÓGICA DE DIAGNÓSTICO (Inercia de Venta)"):
         st.markdown("""
         | Estado | Condición (Meses de Stock) | Acción Sugerida |
