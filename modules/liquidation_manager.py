@@ -13,7 +13,7 @@ def mostrar_modulo_liquidation():
             df = pd.read_csv(archivo) if archivo.name.endswith('.csv') else pd.read_excel(archivo)
             df.columns = df.columns.str.strip()
 
-            # --- TRATAMIENTO INTELIGENTE DE CÓDIGOS Y UDE ---
+            # --- TRATAMIENTO INTELIGENTE DE CÓDIGOS Y UE ---
             def procesar_codigo(txt):
                 txt = str(txt).strip()
                 # Buscamos el último número después de una serie de espacios
