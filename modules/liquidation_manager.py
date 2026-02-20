@@ -4,7 +4,7 @@ import os
 
 def mostrar_modulo_liquidation():
     st.header("📦 Módulo de Liquidación Estratégica")
-    st.info("Este módulo analiza el stock con próximo vencimiento y overstock para facilitar la toma de decisiones comerciales.")
+    st.info("Este módulo analiza el stock con próximo vencimiento para facilitar la toma de decisiones comerciales. Este módulo no tiene conección con IA")
 
     # 1. Carga de archivo aislada para este módulo
     archivo = st.file_uploader("Cargar planilla 'Vencimientos'", type=['xlsx', 'csv'], key="liq_uploader")
