@@ -8,18 +8,14 @@ def mostrar_modulo_liquidation():
     st.info("Diagnóstico de Inventario por Lote y Unidad de Empaque (UE).")
 
     # 1. Glosario
-    with st.expander("ℹ️ VER LEYENDA DE CATEGORÍAS (ABC/DEGN)"):
+    with st.expander("ℹ️ VER LEYENDA TÉCNICA (Rotación ABC/DEFG)"):
         st.markdown("""
-        | Cat | Descripción | Estrategia ante Vencimiento |
+        | Cat | Comportamiento | Estrategia ante Vencimiento |
         | :--- | :--- | :--- |
-        | **A** | **Alta Rotación:** Artículos estrella. | Ofertas de volumen (10+1) para stockear al cliente. |
-        | **B** | **Media Rotación:** Soporte de venta. | Combos con productos A para mover el lote viejo. |
-        | **C** | **Baja Rotación:** Productos de nicho. | Incentivar la primera compra con descuento agresivo. |
-        | **D** | **Residual:** Rotación mínima. | **Liquidación Total:** El objetivo es que salga antes de vencer. |
-        | **E** | **Exhibidores:** Material de display. | Colocación inmediata en punto de venta (PdV). |
-        | **G** | **Gifts / Regalos:** Promocionales. | Regalar por la compra de productos con riesgo 🔴. |
-        | **N** | **Nuevos:** Lanzamientos. | Revisar por qué no rotó en el lanzamiento. |
-        | **S/D**| **Sin Datos:** No clasificado. | Revisar estado del artículo en el maestro. |
+        | **A / B** | **Consumibles:** Salen solos. | Ofertas ligeras para asegurar el lote. |
+        | **C / D** | **Maquinaria:** Requieren empuje. | Combos y ofertas de volumen obligatorias. |
+        | **E / F / G**| **Especialidades:** Rotación Crítica. | **Liquidación Agresiva:** Prioridad máxima de despacho. |
+        | **N** | **Nuevos:** Sin historial. | Evaluar aceptación del mercado uruguayo. |
         """)
 
     archivo = st.file_uploader("Cargar volcado de Vencimientos", type=['xlsx', 'csv'], key="liq_uploader_v_final")
