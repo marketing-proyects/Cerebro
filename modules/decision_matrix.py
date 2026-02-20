@@ -100,7 +100,7 @@ def mostrar_matriz_decisiones():
             df_editado.to_excel(writer, index=False, sheet_name='PropuestaComercial')
         
         st.download_button(
-            label="📥 Exportar Propuesta a Marketing",
+            label="📥 Exportar Propuesta Promocional en Excel",
             data=output.getvalue(),
             file_name="Propuesta_Estrategica_Wurth.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
