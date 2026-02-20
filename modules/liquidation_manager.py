@@ -16,21 +16,21 @@ def mostrar_modulo_liquidation():
             else:
                 df = pd.read_excel(archivo)
             
-            # Limpiar nombres de columnas para evitar espacios invisibles
+            # Limpiar nombres de columnas (quitar espacios en los encabezados)
             df.columns = df.columns.str.strip()
 
             # --- LIMPIEZA AGRESIVA DE DATOS ---
             
-            # A. Columnas Numéricas: Forzamos a float y convertimos errores (como "Ok") en 0
+            # A. Columnas Numéricas: Forzamos a float y convertimos errores (como "Ok" o "Fecha vto") en 0
             cols_a_limpiar = ['Vencimiento en meses', 'Meses de stock', 'STOCK ATP', 'Consumo mensual']
             for col in cols_a_limpiar:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(float)
 
-            # B. Columna ABC: La "vacunamos" contra el error de comparación (NaN vs Str)
+            # B. Columna ABC: La "vacunamos" contra errores de tipo (NaN vs Str)
             if 'Indicador A B C' in df.columns:
-                # Convertimos todo a texto y llenamos vacíos con "Z" o "S/D"
-                df['Indicador A B C'] = df['Indicador A B C'].astype(str).replace('nan', 'S/D').strip()
+                # CORRECCIÓN: Usamos .str.strip() para Series de Pandas
+                df['Indicador A B C'] = df['Indicador A B C'].astype(str).replace('nan', 'S/D').str.strip()
             else:
                 df['Indicador A B C'] = 'S/D'
 
@@ -76,9 +76,8 @@ def mostrar_modulo_liquidation():
                 # El buscador limpia espacios para coincidir con la raíz del código
                 busqueda = st.text_input("Buscar (Código, Nombre o Lote):").strip().replace(" ", "")
             with f3:
-                # Aquí estaba el error: ahora nos aseguramos de que ABC sea una lista de puros strings
-                abc_list = [str(x) for x in df['Indicador A B C'].unique() if x != 'nan']
-                abc_ops = sorted(abc_list)
+                # Creamos la lista de opciones ABC de forma segura (solo strings únicos)
+                abc_ops = sorted([str(x) for x in df['Indicador A B C'].unique() if str(x) != 'nan'])
                 abc_sel = st.multiselect("Categoría ABC:", options=abc_ops, default=abc_ops)
 
             # --- APLICAR FILTRO ---
@@ -98,7 +97,7 @@ def mostrar_modulo_liquidation():
                 'STOCK ATP', 'Vencimiento', 'Vencimiento en meses', 'Meses de stock', 'Indicador A B C'
             ]
             
-            # Ordenamos por riesgo y luego por meses de vencimiento (ya como floats puros)
+            # Ordenamos asegurando que no haya tipos mezclados
             df_final = df_final.sort_values(by=['Estado_Cerebro', 'Vencimiento en meses'], ascending=[True, True])
 
             st.dataframe(
