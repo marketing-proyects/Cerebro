@@ -4,7 +4,7 @@ import io
 
 def mostrar_matriz_decisiones():
     st.header("🎯 Matriz de Decisiones: Consola de Campañas")
-    st.info("Diseñá múltiples acciones (Ofertas y Combos) en una sola sesión para tu equipo de Marketing.")
+    st.info("Diseñá múltiples acciones (Ofertas y Combos) en una sola sesión.")
 
     # --- 1. MEMORIA DE LA PROPUESTA ---
     if 'propuesta_acumulada' not in st.session_state:
