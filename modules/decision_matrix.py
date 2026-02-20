@@ -58,9 +58,9 @@ def mostrar_matriz_decisiones():
     if seleccionados:
         df_sandbox = df_consolidado[df_consolidado['Descripción del material'].isin(seleccionados)].copy()
         
-        # Inicializamos el precio promo (25% de margen sobre PFEP si existe)
+        # Inicializamos el precio promo (40% de margen sobre PFEP si existe)
         if 'PFEP' in df_sandbox.columns:
-            df_sandbox['Precio_Promo'] = df_sandbox['PFEP'] * 1.25
+            df_sandbox['Precio_Promo'] = df_sandbox['PFEP'] * 1.40
         else:
             df_sandbox['Precio_Promo'] = 0.0
 
