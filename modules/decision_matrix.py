@@ -3,7 +3,7 @@ import pandas as pd
 import io
 
 def mostrar_matriz_decisiones():
-    st.header("🎯 Matriz de Decisiones: Consola de Campañas")
+    st.header("🎯 Matriz de Decisiones")
     st.info("Diseño de Ofertas y Promociones")
 
     # --- 1. MEMORIA DE LA PROPUESTA ---
